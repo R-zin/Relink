@@ -79,6 +79,10 @@ class OutboxDao {
     );
   }
 
+  /// Retry count for one message (0 if unknown) — used by SyncService to
+  /// dead-letter messages the server keeps rejecting.
+  Future<int> retryCount(String id) => _retryCount(id);
+
   Future<int> _retryCount(String id) async {
     final db = await _db;
     final rows = await db.query('outbox',
