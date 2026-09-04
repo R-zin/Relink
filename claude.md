@@ -1,19 +1,27 @@
 # RELINK — Disaster Resilience Platform
-### Project Spec / Build Guide (Hackathon Prototype — 1 Day)
+### Master Plan (Hackathon Prototype — 1 Day)
 
 > Theme: Living with Uncertainties, Building with Resilience
 > Track: Advancing Disaster Management — Personnel Identification, Communication Systems, Disease Prevention
 
 ---
 
-## 0. How To Use This Document (read this first, every session)
+## 0. How To Use This Plan (read this first, every session)
 
-This file is split into **Core Context** (Sections 1–7) and a **4-Phase Build Plan** (Section 8). Each phase runs as its own agent session with no memory of prior sessions. To keep sessions fast and on-scope:
+This is the **master plan**: shared ground truth for every implementation session. Detailed build instructions live in per-phase files under `plans/` — each phase runs as its own agent session with no memory of prior sessions.
 
-1. Read Section 1–7 once at the start of your phase — this is the shared ground truth, don't re-derive it.
-2. Read **only your assigned phase** in Section 8. Do not read or "helpfully" touch other phases' scope — it wastes budget and risks conflicting decisions.
-3. Before finishing, append a short entry to the **Status Log** (Section 9) — 5-10 lines: what you built, what deviated from spec and why, what's broken/incomplete. The next session reads this instead of re-scanning the codebase.
-4. If you must deviate from something in Core Context, log it in the Status Log rather than silently diverging — later phases depend on Core Context being accurate.
+1. You are reading the master plan (auto-loaded). This is Core Context — trust it, don't re-derive it.
+2. Read **only your assigned phase file** (`plans/phase_N.md`). Do not read or "helpfully" touch other phases' scope — it wastes budget and risks conflicting decisions.
+3. Before finishing, **update your phase's entry in the Status Log (Section 9 of this file)** — 5–10 lines: what you built, what deviated from spec and why, what's broken/incomplete. The next session reads this instead of re-scanning the codebase.
+4. If you must deviate from anything in this master plan, log it in the Status Log rather than silently diverging — later phases depend on this document being accurate.
+
+| Phase | File | Scope |
+|---|---|---|
+| 1 | `plans/phase_1.md` | Foundation — backend skeleton, Postgres schema, core CRUD, sqflite outbox scaffold |
+| 2 | `plans/phase_2.md` | Core app flows (internet path only) — SOS, live map, submissions |
+| 3 | `plans/phase_3.md` | Offline path — BLE mesh + medical-card crypto |
+| 4 | `plans/phase_4.md` | Backend intelligence — external hazard APIs, AI review, Sachet RSS + FCM push |
+| 5 | `plans/phase_5.md` | React dashboard + seed data + demo prep |
 
 ---
 
@@ -231,44 +239,40 @@ relink/
 │   └── jobs/             # scheduler for alert/stats polling
 ├── dashboard/            # React + Vite
 │   ├── src/components/   # map, charts, review panel
-└── CLAUDE.md             # this file
+├── plans/                # per-phase build instructions
+│   ├── phase_1.md        # Foundation
+│   ├── phase_2.md        # Core app flows (internet path)
+│   ├── phase_3.md        # Offline mesh + medical crypto
+│   ├── phase_4.md        # Alerts, stats, AI review, FCM push
+│   └── phase_5.md        # Dashboard + demo prep
+└── CLAUDE.md             # this master plan
 ```
 
 ---
 
-## 8. Build Plan — 4 Phases, One Session Each
+## 8. Phase Overview
 
-### Phase 1 — Foundation
-**Scope:** Backend skeleton, Postgres schema (Section 7), core CRUD endpoints (`/sos`, `/reports`, `/reports/{id}/confirm`, `/shelters`, `/shelters/{id}/confirm`, `/missing-persons`). Client-side `sqflite` outbox scaffold (schema only, no UI yet).
-**Do not touch:** mesh, crypto, external APIs, dashboard, UI screens.
-**Definition of done:** every endpoint in Section 7 responds correctly against a local Postgres instance; outbox table exists and can store/retrieve queued messages.
+Detailed instructions per phase are in `plans/phase_N.md`. Read only your assigned file.
 
-### Phase 2 — Core App Flows (internet path only)
-**Scope:** Flutter screens — SOS button, Live Map (Section 3.2) with GPS capture via `geolocator`, report/shelter/missing-person submission, all wired directly to the Phase 1 backend over HTTP. No mesh, no encryption yet — medical card fields exist in the UI but are sent as plain HTTP for now.
-**Do not touch:** Nearby Connections, crypto, dashboard, stats/alerts.
-**Definition of done:** a phone with internet can submit an SOS, a hazard report, and a shelter, and see them reflected via the backend; map shows all three layer types with confirm counts.
-
-### Phase 3 — Offline Path: Mesh + Medical Card Crypto
-**Scope:** This is the highest-risk phase — isolate it, don't split focus. Nearby Connections integration (`P2P_CLUSTER` strategy), the flooding algorithm from Section 7, sync-on-reconnect logic for the outbox. AES-GCM encryption (Section 5) applied to sensitive medical card fields before they enter the mesh payload; decrypt path wired into the dashboard demo environment.
-**Requires:** 2+ physical Android devices — cannot be meaningfully tested on emulators.
-**Do not touch:** stats/alerts/AI review, dashboard polish.
-**Definition of done:** two phones in airplane mode, one presses SOS, the other relays it, a third device (or the same one) with internet flushes it to the backend, and the responder dashboard can decrypt the sensitive fields. **Record this working end-to-end at least once as a backup video** — live BLE demos are inherently flaky and you will not get a second take in front of judges.
-
-### Phase 4 — Alerts, Stats, Dashboard, Demo Prep
-**Scope:** External hazard API integration (Section 7 table), including Open-Meteo GloFAS for river discharge/forecast risk and Copernicus GFM for satellite-observed flood extent, + AI review endpoint, Sachet RSS polling + FCM push as true system-tray notifications (Section 3.3) with high-priority channel, React dashboard (map + charts + observed-flood extent layer + confirm counts + decrypt view), seed mock historical data so the dashboard doesn't look empty, rehearse triggering one live report during the demo. Social signal monitoring (Section 3, optional) only if time remains after everything else here is solid.
-**Do not touch:** anything in Phases 1-3 unless fixing a bug blocking this phase.
-**Definition of done:** dashboard shows seeded historical data + live updates; a Red/Orange alert produces an actual notification-tray push on a backgrounded/killed app; AI risk summary renders for at least one region.
+| Phase | Scope (one line) | Definition of done |
+|---|---|---|
+| 1 | Backend skeleton, Postgres schema, core CRUD endpoints, sqflite outbox scaffold | Every Phase-1 endpoint responds correctly against local Postgres; outbox table stores/retrieves queued messages |
+| 2 | Flutter screens — SOS, Live Map, report/shelter/missing-person submission over HTTP | A phone with internet can submit SOS/report/shelter and see them via backend; map shows all three layer types with confirm counts |
+| 3 | Nearby Connections mesh, flooding algorithm, sync-on-reconnect, AES-GCM medical card, dashboard decrypt path | Two airplane-mode phones relay an SOS, an internet device flushes it, dashboard decrypts sensitive fields; **backup video recorded** |
+| 4 | External hazard APIs, AI review endpoint, Sachet RSS polling, FCM system-tray push | `/stats` + `/stats/ai-review` + `/alerts` serve cached live data; Red/Orange alert produces a real notification-tray push on a backgrounded/killed app |
+| 5 | React dashboard (map + charts + flood layer + decrypt view), seed data, demo prep | Dashboard shows seeded data + live updates incl. GFM layer and decrypt view; AI summary renders for a region; demo checklist executed |
 
 ---
 
 ## 9. Status Log
 
-*(Append one entry per phase/session — keep each to ~5-10 lines: what was built, deviations from Core Context and why, what's broken or incomplete for the next phase.)*
+*(One entry per phase/session — keep each to ~5–10 lines: what was built, deviations from the master plan and why, what's broken or incomplete for the next phase.)*
 
 - Phase 1: —
 - Phase 2: —
 - Phase 3: —
 - Phase 4: —
+- Phase 5: —
 
 ---
 
