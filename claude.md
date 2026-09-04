@@ -12,16 +12,17 @@ This is the **master plan**: shared ground truth for every implementation sessio
 
 1. You are reading the master plan (auto-loaded). This is Core Context — trust it, don't re-derive it.
 2. Read **only your assigned phase file** (`plans/phase_N.md`). Do not read or "helpfully" touch other phases' scope — it wastes budget and risks conflicting decisions.
-3. Before finishing, **update your phase's entry in the Status Log (Section 9 of this file)** — 5–10 lines: what you built, what deviated from spec and why, what's broken/incomplete. The next session reads this instead of re-scanning the codebase.
-4. If you must deviate from anything in this master plan, log it in the Status Log rather than silently diverging — later phases depend on this document being accurate.
+3. Each phase file defines **what files/subsystems you may modify**. Stay inside it; if a fix is needed outside your scope, report it to the user instead of silently changing it.
+4. **If you run into any issue mid-implementation, or any doubt/ambiguity this plan doesn't resolve: STOP and ask the user, then continue with their answer.** Never guess on contract-level decisions (schemas, API shapes, crypto formats, message protocol) — every other phase builds on them.
+5. Before finishing, **update your phase's entry in the Status Log (Section 9 of this file)** — 5–10 lines: what you built, what deviated from spec and why, what's broken/incomplete. The next session reads this instead of re-scanning the codebase.
+6. If you must deviate from anything in this master plan, log it in the Status Log rather than silently diverging — later phases depend on this document being accurate.
 
 | Phase | File | Scope |
 |---|---|---|
-| 1 | `plans/phase_1.md` | Foundation — backend skeleton, Postgres schema, core CRUD, sqflite outbox scaffold |
+| 1 | `plans/phase_1.md` | Foundation — backend skeleton, Postgres schema, core CRUD, DBSCAN clustering, Flutter scaffold + sqflite outbox |
 | 2 | `plans/phase_2.md` | Core app flows (internet path only) — SOS, live map, submissions |
-| 3 | `plans/phase_3.md` | Offline path — BLE mesh + medical-card crypto |
-| 4 | `plans/phase_4.md` | Backend intelligence — external hazard APIs, AI review, Sachet RSS + FCM push |
-| 5 | `plans/phase_5.md` | React dashboard + seed data + demo prep |
+| 3 | `plans/phase_3.md` | Offline path — BLE mesh + medical-card crypto (+ backend decrypt endpoint) |
+| 4 | `plans/phase_4.md` | Backend intelligence (hazard APIs, AI review, Sachet RSS + FCM push) + React dashboard + seed data + demo prep |
 
 ---
 
@@ -239,12 +240,12 @@ relink/
 │   └── jobs/             # scheduler for alert/stats polling
 ├── dashboard/            # React + Vite
 │   ├── src/components/   # map, charts, review panel
+├── demo/                 # backup recordings (Phase 3 mesh video, etc.)
 ├── plans/                # per-phase build instructions
 │   ├── phase_1.md        # Foundation
 │   ├── phase_2.md        # Core app flows (internet path)
 │   ├── phase_3.md        # Offline mesh + medical crypto
-│   ├── phase_4.md        # Alerts, stats, AI review, FCM push
-│   └── phase_5.md        # Dashboard + demo prep
+│   └── phase_4.md        # Intelligence + alerts/push + dashboard + demo prep
 └── CLAUDE.md             # this master plan
 ```
 
@@ -256,11 +257,10 @@ Detailed instructions per phase are in `plans/phase_N.md`. Read only your assign
 
 | Phase | Scope (one line) | Definition of done |
 |---|---|---|
-| 1 | Backend skeleton, Postgres schema, core CRUD endpoints, sqflite outbox scaffold | Every Phase-1 endpoint responds correctly against local Postgres; outbox table stores/retrieves queued messages |
-| 2 | Flutter screens — SOS, Live Map, report/shelter/missing-person submission over HTTP | A phone with internet can submit SOS/report/shelter and see them via backend; map shows all three layer types with confirm counts |
+| 1 | Backend skeleton, Postgres schema, core CRUD endpoints, DBSCAN clustering, sqflite outbox scaffold | Every Phase-1 endpoint responds correctly against local Postgres; `/reports/clusters` collapses near-duplicates; outbox table stores/retrieves queued messages with SOS-first ordering |
+| 2 | Flutter screens — SOS, Live Map, report/shelter/missing-person submission over HTTP | A phone with internet can submit SOS/report/shelter and see them via backend; map shows all three layer types with confirm counts; offline submissions queue in outbox and flush on reconnect |
 | 3 | Nearby Connections mesh, flooding algorithm, sync-on-reconnect, AES-GCM medical card, dashboard decrypt path | Two airplane-mode phones relay an SOS, an internet device flushes it, dashboard decrypts sensitive fields; **backup video recorded** |
-| 4 | External hazard APIs, AI review endpoint, Sachet RSS polling, FCM system-tray push | `/stats` + `/stats/ai-review` + `/alerts` serve cached live data; Red/Orange alert produces a real notification-tray push on a backgrounded/killed app |
-| 5 | React dashboard (map + charts + flood layer + decrypt view), seed data, demo prep | Dashboard shows seeded data + live updates incl. GFM layer and decrypt view; AI summary renders for a region; demo checklist executed |
+| 4 | External hazard APIs, AI review, Sachet RSS + FCM push, React dashboard, seed data, demo prep | `/stats` + `/stats/ai-review` + `/alerts` serve cached live data; Red/Orange alert produces a real notification-tray push on a backgrounded/killed app; dashboard shows seeded data + live updates incl. GFM layer and decrypt view; demo checklist executed |
 
 ---
 
@@ -272,7 +272,6 @@ Detailed instructions per phase are in `plans/phase_N.md`. Read only your assign
 - Phase 2: —
 - Phase 3: —
 - Phase 4: —
-- Phase 5: —
 
 ---
 
