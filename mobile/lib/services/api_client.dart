@@ -42,7 +42,7 @@ class ApiClient {
   final http.Client _http;
   final String baseUrl;
 
-  static const _timeout = Duration(seconds: 10);
+  static const _timeout = Duration(seconds: 30);
 
   Future<Map<String, dynamic>> postJson(
       String path, Map<String, dynamic> body) async {
@@ -51,7 +51,10 @@ class ApiClient {
       res = await _http
           .post(
             Uri.parse('$baseUrl$path'),
-            headers: const {'Content-Type': 'application/json'},
+            headers: const {
+              'Content-Type': 'application/json',
+              'ngrok-skip-browser-warning': 'true',
+            },
             body: jsonEncode(body),
           )
           .timeout(_timeout);
@@ -74,7 +77,12 @@ class ApiClient {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
     final http.Response res;
     try {
-      res = await _http.get(uri).timeout(_timeout);
+      res = await _http
+          .get(
+            uri,
+            headers: const {'ngrok-skip-browser-warning': 'true'},
+          )
+          .timeout(_timeout);
     } on TimeoutException {
       throw ApiException('request timed out');
     } on SocketException catch (e) {

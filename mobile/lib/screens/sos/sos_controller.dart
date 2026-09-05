@@ -77,13 +77,14 @@ class SosController {
     // 1. Enqueue to local outbox
     await _outbox.enqueue(message);
 
-    // 2. Broadcast to nearby BLE peers if mesh is active
-    if (_meshManager != null) {
+    // 2. Primary: Attempt direct internet flush (succeeds if online, graceful if offline)
+    await _sync.flushOnce();
+
+    // 3. Fallback: If direct internet flush did not reach backend (offline / no signal),
+    // broadcast to nearby peers over BLE mesh to hop to an online device
+    if (!_sync.lastFlushSentAll && _meshManager != null) {
       await _meshManager.broadcastMessage(message);
     }
-
-    // 3. Attempt direct internet flush (succeeds if online, graceful if offline)
-    await _sync.flushOnce();
     return _sync.lastFlushSentAll;
   }
 }

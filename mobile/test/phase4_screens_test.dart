@@ -10,6 +10,7 @@ import 'package:relink_mobile/screens/alerts/alerts_screen.dart';
 import 'package:relink_mobile/screens/stats/stats_screen.dart';
 import 'package:relink_mobile/services/api_client.dart';
 import 'package:relink_mobile/theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Builds the screen under test with a stubbed [ApiClient] backed by an
 /// in-memory HTTP handler, so no real network or plugins are involved.
@@ -37,6 +38,10 @@ Widget _wrap(Widget child, Map<String, Object> routes) {
 }
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   testWidgets('Alerts screen renders an urgent Red alert verbatim', (tester) async {
     final alert = {
       'id': 'a1',
@@ -88,7 +93,7 @@ void main() {
     expect(withSeverity('Green').isUrgent, isFalse);
   });
 
-  testWidgets('Stats screen renders AI review + river + dams', (tester) async {
+  testWidgets('Stats screen renders river + rainfall + subtitles', (tester) async {
     final stats = {
       'region': 'Kochi, Kerala',
       'fetched_at': '2026-09-05T09:00:00Z',
@@ -128,17 +133,8 @@ void main() {
         },
       },
     };
-    final review = {
-      'region': 'Kochi, Kerala',
-      'summary_text': 'Periyar discharge is 6 m³/s. Mullaperiyar reservoir is at 92.7% storage. RISK TAG: Severe',
-      'risk_tag': 'Severe',
-      'source': 'rule',
-      'generated_at': '2026-09-05T09:00:00Z',
-      'stale': false,
-    };
     await tester.pumpWidget(_wrap(const StatsScreen(), {
-      '/stats/ai-review': review,
-      '/stats': stats, // after /stats/ai-review so the longer prefix wins
+      '/stats': stats,
     }));
     // Bounded pumps — fl_chart runs indefinite animations, so pumpAndSettle
     // would never return.
@@ -146,10 +142,11 @@ void main() {
       await tester.pump(const Duration(milliseconds: 120));
     }
 
-    expect(find.text('Risk assessment'), findsOneWidget);
-    expect(find.text('SEVERE'), findsOneWidget);
+    expect(find.text('Risk assessment'), findsNothing);
     expect(find.text('Periyar river discharge'), findsOneWidget);
+    expect(find.text('7-day forecast comparing projected river flow against seasonal normal'), findsOneWidget);
     expect(find.text('Rainfall & wind'), findsOneWidget);
+    expect(find.text('24-hour accumulated rainfall and peak recorded wind gusts'), findsOneWidget);
     // Off-screen cards (Reservoir levels / dam rows) are lazily built only
     // when scrolled into view; the fixtures flowing into them are covered by
     // the backend /stats test.

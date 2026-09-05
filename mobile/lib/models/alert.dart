@@ -53,4 +53,18 @@ class Alert {
     final s = (severity ?? '').toLowerCase();
     return s == 'red' || s == 'orange' || s == 'severe' || s == 'extreme';
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'severity': severity,
+        'event': event,
+        'headline': headline,
+        'description': description,
+        'instruction': instruction,
+        'area_desc': areaDesc,
+        'sender': sender,
+        'issued_at': issuedAt?.toIso8601String(),
+        'expires': expires?.toIso8601String(),
+        'is_test': isTest ? 1 : 0,
+      };
 }

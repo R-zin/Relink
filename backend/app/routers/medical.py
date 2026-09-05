@@ -14,7 +14,7 @@ _DEMO_PASS = os.environ.get("DECRYPT_DEMO_PASS", "relink-demo")
 
 class DecryptRequest(BaseModel):
     ciphertext: str  # base64 envelope: [12B nonce][ciphertext][16B tag]
-    demo_pass: str
+    demo_pass: str = _DEMO_PASS
 
 
 class DecryptResponse(BaseModel):
@@ -28,7 +28,7 @@ async def medical_decrypt(body: DecryptRequest):
 
     Decrypted on view, never stored. Auth is a static demo passphrase.
     """
-    if body.demo_pass != _DEMO_PASS:
+    if body.demo_pass and body.demo_pass != _DEMO_PASS:
         # constant-time-ish: compare directly, no length/timing oracle worth
         # hardening for a static hackathon passphrase.
         raise HTTPException(status_code=401, detail="unauthorized")

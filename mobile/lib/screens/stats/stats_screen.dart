@@ -1,14 +1,17 @@
+import 'dart:convert';
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/hazard_stats.dart';
 import '../../services/api_client.dart';
 import '../../theme.dart';
 
-/// Live hazard dashboard (Phase 4): AI risk review, GloFAS river-discharge
-/// forecast, rainfall bars, and dam fullness. Every card names its data
+/// Live hazard dashboard (Phase 4): GloFAS river-discharge forecast,
+/// rainfall bars, and dam fullness. Every card names its data
 /// source ("IMD", "GloFAS", "CWC Dams", "Copernicus GFM").
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -18,9 +21,9 @@ class StatsScreen extends StatefulWidget {
 }
 
 class _StatsData {
-  _StatsData(this.stats, this.review);
+  const _StatsData({required this.stats, this.isCached = false});
   final HazardStats stats;
-  final AiReview review;
+  final bool isCached;
 }
 
 class _StatsScreenState extends State<StatsScreen> {
@@ -33,11 +36,26 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   Future<_StatsData> _load() async {
-    final api = context.read<ApiClient>();
-    // Stats first (required), AI review second (may fall back to the rule).
-    final stats = await api.getStats();
-    final review = await api.getAiReview();
-    return _StatsData(stats, review);
+    try {
+      final stats = await context.read<ApiClient>().getStats();
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final raw = jsonEncode(stats.toJson());
+        await prefs.setString('relink.cached_stats', raw);
+      } catch (_) {}
+      return _StatsData(stats: stats, isCached: false);
+    } catch (_) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final raw = prefs.getString('relink.cached_stats');
+        if (raw != null && raw.isNotEmpty) {
+          final map = jsonDecode(raw) as Map<String, dynamic>;
+          final cached = HazardStats.fromJson(map);
+          return _StatsData(stats: cached, isCached: true);
+        }
+      } catch (_) {}
+      rethrow;
+    }
   }
 
   Future<void> _refresh() async {
@@ -65,8 +83,29 @@ class _StatsScreenState extends State<StatsScreen> {
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
-                _AiReviewCard(review: data.review),
-                const SizedBox(height: 14),
+                if (data.isCached) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.04),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.black12),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.cloud_off_outlined, size: 16, color: Colors.black54),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Showing cached hazard data · Connect to sync latest updates',
+                            style: TextStyle(fontSize: 12, color: Colors.black87),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 _RiverCard(stats: stats),
                 const SizedBox(height: 14),
                 _RainfallCard(stats: stats),
@@ -78,52 +117,6 @@ class _StatsScreenState extends State<StatsScreen> {
             );
           },
         ),
-      ),
-    );
-  }
-}
-
-// --- AI risk review ---------------------------------------------------------
-
-class _AiReviewCard extends StatelessWidget {
-  const _AiReviewCard({required this.review});
-
-  final AiReview review;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = switch (review.riskTag) {
-      'Severe' => RelinkColors.alarmRed,
-      'High' => RelinkColors.pinHazard,
-      'Moderate' => RelinkColors.primary,
-      _ => const Color(0xFF3D9B6E),
-    };
-    return _Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text('Risk assessment', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-              const Spacer(),
-              _TagBadge(label: review.riskTag, color: color),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(review.summaryText, style: const TextStyle(fontSize: 14, height: 1.5)),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              _SourcePill(review.source == 'llm' ? 'AI review' : 'Rule-based'),
-              const Spacer(),
-              if (review.generatedAt != null)
-                Text(
-                  'Updated ${DateFormat('h:mm a').format(review.generatedAt!.toLocal())}',
-                  style: const TextStyle(fontSize: 11, color: Colors.black45),
-                ),
-            ],
-          ),
-        ],
       ),
     );
   }
@@ -159,6 +152,7 @@ class _RiverCard extends StatelessWidget {
         children: [
           _CardHeader(
             title: 'Periyar river discharge',
+            subtitle: '7-day forecast comparing projected river flow against seasonal normal',
             source: glofas['source_label'] as String? ?? 'GloFAS',
           ),
           const SizedBox(height: 8),
@@ -256,7 +250,11 @@ class _RainfallCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _CardHeader(title: 'Rainfall & wind', source: weather['source_label'] as String? ?? 'IMD'),
+          _CardHeader(
+            title: 'Rainfall & wind',
+            subtitle: '24-hour accumulated rainfall and peak recorded wind gusts',
+            source: weather['source_label'] as String? ?? 'IMD',
+          ),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -316,11 +314,10 @@ class _DamsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _CardHeader(title: 'Reservoir levels', source: 'CWC Dams'),
-          const SizedBox(height: 4),
-          const Text(
-            'Latest published storage (cached dataset)',
-            style: TextStyle(fontSize: 11, color: Colors.black45),
+          const _CardHeader(
+            title: 'Reservoir levels',
+            subtitle: 'Current storage percentage relative to full reservoir capacity',
+            source: 'CWC Dams',
           ),
           const SizedBox(height: 10),
           if (dams.isEmpty)
@@ -390,7 +387,11 @@ class _FloodExtentCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _CardHeader(title: 'Satellite flood extent', source: gfm['source_label'] as String? ?? 'Copernicus GFM'),
+          _CardHeader(
+            title: 'Satellite flood extent',
+            subtitle: 'Radar-observed inundation polygons from latest satellite pass',
+            source: gfm['source_label'] as String? ?? 'Copernicus GFM',
+          ),
           const SizedBox(height: 8),
           Text(
             count > 0
@@ -438,17 +439,34 @@ class _Card extends StatelessWidget {
 }
 
 class _CardHeader extends StatelessWidget {
-  const _CardHeader({required this.title, required this.source});
+  const _CardHeader({
+    required this.title,
+    required this.source,
+    this.subtitle,
+  });
 
   final String title;
   final String source;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600))),
-        _SourcePill(source),
+        Row(
+          children: [
+            Expanded(child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600))),
+            _SourcePill(source),
+          ],
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            subtitle!,
+            style: const TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+        ],
       ],
     );
   }
@@ -468,29 +486,6 @@ class _SourcePill extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: RelinkColors.primary)),
-    );
-  }
-}
-
-class _TagBadge extends StatelessWidget {
-  const _TagBadge({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final severe = label == 'Severe';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-      decoration: BoxDecoration(
-        color: severe ? color : color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label.toUpperCase(),
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: severe ? Colors.white : color),
-      ),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map/flutter_map.dart' hide MapController;
+import 'package:flutter_map/flutter_map.dart' as fmap show MapController;
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 
@@ -44,6 +45,7 @@ class MapController extends ChangeNotifier {
   List<CommunityItem> meshItems = []; // offline mesh-gossiped pins
 
   LatLng center = const LatLng(kDemoCenterLat, kDemoCenterLng);
+  LatLng? userLocation;
   bool loading = false;
   String? error;
 
@@ -54,10 +56,22 @@ class MapController extends ChangeNotifier {
     _started = true;
     final fix = await _location.getCurrent();
     if (fix.position != null) {
-      center = LatLng(fix.position!.latitude, fix.position!.longitude);
+      userLocation = LatLng(fix.position!.latitude, fix.position!.longitude);
+      center = userLocation!;
       notifyListeners();
     }
     await refresh();
+  }
+
+  Future<LatLng?> locateUser() async {
+    final fix = await _location.getCurrent();
+    if (fix.position != null) {
+      userLocation = LatLng(fix.position!.latitude, fix.position!.longitude);
+      center = userLocation!;
+      notifyListeners();
+      return userLocation;
+    }
+    return null;
   }
 
   void toggle(String layer) {
@@ -151,6 +165,7 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   late final MapController _controller;
+  final fmap.MapController _mapController = fmap.MapController();
 
   @override
   void initState() {
@@ -171,6 +186,7 @@ class _MapScreenState extends State<MapScreen> {
           return Stack(
             children: [
               FlutterMap(
+                mapController: _mapController,
                 options: MapOptions(
                   initialCenter: c.center,
                   initialZoom: 12,
@@ -210,6 +226,28 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               Positioned(
                 left: 12,
+                bottom: 72,
+                child: FloatingActionButton.small(
+                  heroTag: 'map-gps',
+                  tooltip: 'My location',
+                  onPressed: () async {
+                    final pos = await c.locateUser();
+                    if (pos != null) {
+                      _mapController.move(pos, 15);
+                    } else if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Could not get GPS location. Please check device location settings.'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
+                  child: const Icon(Icons.my_location),
+                ),
+              ),
+              Positioned(
+                left: 12,
                 bottom: 16,
                 child: FloatingActionButton.small(
                   heroTag: 'map-refresh',
@@ -233,6 +271,31 @@ class _MapScreenState extends State<MapScreen> {
 
   List<Marker> _markers(BuildContext context, MapController c) {
     return [
+      if (c.userLocation != null)
+        Marker(
+          point: c.userLocation!,
+          width: 36,
+          height: 36,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: RelinkColors.primary.withValues(alpha: 0.2),
+            ),
+            alignment: Alignment.center,
+            child: Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: RelinkColors.primary,
+                border: Border.all(color: Colors.white, width: 2.5),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black26, blurRadius: 4, spreadRadius: 1),
+                ],
+              ),
+            ),
+          ),
+        ),
       if (c.showHazards) ...[
         for (final cluster in c.clusters)
           _pin(

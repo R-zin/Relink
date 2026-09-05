@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/alert.dart';
 import '../../services/api_client.dart';
@@ -18,8 +21,14 @@ class AlertsScreen extends StatefulWidget {
   State<AlertsScreen> createState() => _AlertsScreenState();
 }
 
+class _AlertsData {
+  const _AlertsData({required this.alerts, this.isCached = false});
+  final List<Alert> alerts;
+  final bool isCached;
+}
+
 class _AlertsScreenState extends State<AlertsScreen> {
-  late Future<List<Alert>> _future;
+  late Future<_AlertsData> _future;
 
   @override
   void initState() {
@@ -27,7 +36,31 @@ class _AlertsScreenState extends State<AlertsScreen> {
     _future = _load();
   }
 
-  Future<List<Alert>> _load() => context.read<ApiClient>().listAlerts();
+  Future<_AlertsData> _load() async {
+    try {
+      final alerts = await context.read<ApiClient>().listAlerts();
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final raw = jsonEncode([for (final a in alerts) a.toJson()]);
+        await prefs.setString('relink.cached_alerts', raw);
+      } catch (_) {}
+      return _AlertsData(alerts: alerts, isCached: false);
+    } catch (_) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final raw = prefs.getString('relink.cached_alerts');
+        if (raw != null && raw.isNotEmpty) {
+          final list = (jsonDecode(raw) as List)
+              .map((item) => Alert.fromJson(Map<String, dynamic>.from(item as Map)))
+              .toList();
+          if (list.isNotEmpty) {
+            return _AlertsData(alerts: list, isCached: true);
+          }
+        }
+      } catch (_) {}
+      rethrow;
+    }
+  }
 
   Future<void> _refresh() async {
     final f = _load();
@@ -40,7 +73,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
     return SafeArea(
       child: RefreshIndicator(
         onRefresh: _refresh,
-        child: FutureBuilder<List<Alert>>(
+        child: FutureBuilder<_AlertsData>(
           future: _future,
           builder: (context, snap) {
             if (snap.connectionState == ConnectionState.waiting) {
@@ -54,7 +87,8 @@ class _AlertsScreenState extends State<AlertsScreen> {
                 onRetry: _refresh,
               );
             }
-            final alerts = snap.data ?? const [];
+            final data = snap.data ?? const _AlertsData(alerts: []);
+            final alerts = data.alerts;
             if (alerts.isEmpty) {
               return _MessagePane(
                 icon: Icons.notifications_none,
@@ -65,9 +99,34 @@ class _AlertsScreenState extends State<AlertsScreen> {
             }
             return ListView.separated(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-              itemCount: alerts.length,
+              itemCount: alerts.length + (data.isCached ? 1 : 0),
               separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, i) => _AlertCard(alert: alerts[i]),
+              itemBuilder: (context, i) {
+                if (data.isCached && i == 0) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.black12),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.cloud_off_outlined, size: 16, color: Colors.black54),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Showing cached alerts · Connect to backend to sync latest updates',
+                            style: TextStyle(fontSize: 12, color: Colors.black54),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                final alert = alerts[data.isCached ? i - 1 : i];
+                return _AlertCard(alert: alert);
+              },
             );
           },
         ),

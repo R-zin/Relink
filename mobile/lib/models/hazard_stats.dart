@@ -16,6 +16,12 @@ class HazardStats {
         metrics: (json['metrics'] as Map?)?.cast<String, dynamic>() ?? const {},
       );
 
+  Map<String, dynamic> toJson() => {
+        'region': region,
+        if (fetchedAt != null) 'fetched_at': fetchedAt!.toIso8601String(),
+        'metrics': metrics,
+      };
+
   Map<String, dynamic> get glofas => (metrics['glofas'] as Map?)?.cast<String, dynamic>() ?? const {};
   Map<String, dynamic> get weather => (metrics['weather'] as Map?)?.cast<String, dynamic>() ?? const {};
   Map<String, dynamic> get gfm => (metrics['gfm'] as Map?)?.cast<String, dynamic>() ?? const {};

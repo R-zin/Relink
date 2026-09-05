@@ -28,7 +28,9 @@ class MedicalDecryptError(Exception):
 
 
 def _load_key() -> bytes:
-    raw = os.environ.get("MEDICAL_CARD_DEMO_KEY", "")
+    from app.config import get_settings
+    settings = get_settings()
+    raw = settings.MEDICAL_CARD_DEMO_KEY or os.environ.get("MEDICAL_CARD_DEMO_KEY", "")
     if not raw:
         raise MedicalDecryptError("server is not configured with MEDICAL_CARD_DEMO_KEY")
     try:

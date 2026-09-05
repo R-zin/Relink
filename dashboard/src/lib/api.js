@@ -30,6 +30,6 @@ export const api = {
     req(`/alerts?state=${state}${includeExpired ? '&include_expired=true' : ''}`),
   getStats: (region) => req(`/stats${region ? `?region=${encodeURIComponent(region)}` : ''}`),
   getAiReview: (region) => req(`/stats/ai-review${region ? `?region=${encodeURIComponent(region)}` : ''}`),
-  decryptMedical: (ciphertext, demoPass) =>
+  decryptMedical: (ciphertext, demoPass = 'relink-demo') =>
     req('/medical/decrypt', { method: 'POST', body: { ciphertext, demo_pass: demoPass } }),
 };
