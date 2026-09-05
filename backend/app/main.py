@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import health, missing_persons, reports, shelters, sos
+from app.routers import health, medical, missing_persons, reports, shelters, sos
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("relink")
@@ -34,5 +34,5 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for r in (health.router, sos.router, reports.router, missing_persons.router, shelters.router):
+for r in (health.router, sos.router, reports.router, missing_persons.router, shelters.router, medical.router):
     app.include_router(r)

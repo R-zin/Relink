@@ -31,6 +31,7 @@ void main() {
     expect(req.path, '/sos');
     expect(req.body, {
       'device_id': 'device-9',
+      'client_msg_id': 'msg-1', // Phase 3 idempotent relay-flush key
       'lat': 9.98,
       'lng': 76.28,
       'plaintext_medical': {'name': 'Asha', 'blood_group': 'O+'},
@@ -43,6 +44,7 @@ void main() {
         envelopeRequest(envelope(MessageType.sos, {'lat': 9.9, 'lng': 76.2}));
     expect(req.body, {
       'device_id': 'device-9',
+      'client_msg_id': 'msg-1',
       'lat': 9.9,
       'lng': 76.2,
     });
@@ -65,6 +67,7 @@ void main() {
       'lng': 76.28,
       'description': 'knee-deep water',
       'device_id': 'device-9',
+      'client_msg_id': 'msg-1', // Phase 3 idempotent relay-flush key
     });
   });
 

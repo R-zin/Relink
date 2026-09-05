@@ -5,23 +5,33 @@ import 'package:provider/provider.dart';
 
 import '../../config.dart';
 import '../../models/cluster.dart';
+import '../../models/mesh_message.dart';
 import '../../models/missing_person.dart';
 import '../../models/report.dart';
 import '../../models/shelter.dart';
 import '../../services/api_client.dart';
 import '../../services/location_service.dart';
+import '../../storage/community_store.dart';
 import '../../theme.dart';
 import '../../utils/relative_time.dart';
 
 /// State for the live map: layer toggles + fetched data + plain-language
 /// loading/error states. Colocated with the screen per Phase 2 §3.
+///
+/// Phase 3: also reads the local [CommunityStore] so pins received over the
+/// offline mesh render with a "📡 Via Mesh (N hops)" badge even with no signal.
 class MapController extends ChangeNotifier {
-  MapController({required ApiClient api, required LocationService location})
-      : _api = api,
-        _location = location;
+  MapController({
+    required ApiClient api,
+    required LocationService location,
+    CommunityStore? communityStore,
+  })  : _api = api,
+        _location = location,
+        _communityStore = communityStore;
 
   final ApiClient _api;
   final LocationService _location;
+  final CommunityStore? _communityStore;
 
   bool showShelters = true;
   bool showHazards = true;
@@ -31,6 +41,7 @@ class MapController extends ChangeNotifier {
   List<Report> noiseReports = [];
   List<Shelter> shelters = [];
   List<MissingPerson> missingPersons = [];
+  List<CommunityItem> meshItems = []; // offline mesh-gossiped pins
 
   LatLng center = const LatLng(kDemoCenterLat, kDemoCenterLng);
   bool loading = false;
@@ -67,6 +78,13 @@ class MapController extends ChangeNotifier {
     error = null;
     notifyListeners();
     var anyFailed = false;
+    // Offline mesh-gossiped pins always come from local SQLite — works with no
+    // signal, which is the entire point of the mesh.
+    try {
+      meshItems = await _communityStore?.recent(limit: 100) ?? [];
+    } catch (_) {
+      meshItems = [];
+    }
     try {
       if (showHazards) {
         try {
@@ -140,6 +158,7 @@ class _MapScreenState extends State<MapScreen> {
     _controller = MapController(
       api: context.read<ApiClient>(),
       location: context.read<LocationService>(),
+      communityStore: context.read<CommunityStore?>(),
     )..init();
   }
 
@@ -247,7 +266,89 @@ class _MapScreenState extends State<MapScreen> {
               icon: Icons.person,
               onTap: () => _showMissingSheet(context, person),
             ),
+      // Offline mesh-gossiped pins (📡 Via Mesh). These render even with no
+      // signal — they come straight from local SQLite.
+      for (final item in c.meshItems)
+        if (item.lat != null && item.lng != null)
+          if (_meshLayerVisible(c, item))
+            _pin(
+              LatLng(item.lat!, item.lng!),
+              _meshColor(item),
+              icon: _meshIcon(item),
+              small: true,
+              onTap: () => _showMeshItemSheet(context, item),
+            ),
     ];
+  }
+
+  bool _meshLayerVisible(MapController c, CommunityItem item) {
+    switch (item.type) {
+      case MessageType.report:
+        return c.showHazards;
+      case MessageType.shelter:
+        return c.showShelters;
+      case MessageType.missingPerson:
+        return c.showMissing;
+      case MessageType.sos:
+        return false; // SOS relays are not rendered as forum pins
+    }
+  }
+
+  Color _meshColor(CommunityItem item) {
+    switch (item.type) {
+      case MessageType.report:
+        return RelinkColors.pinHazard;
+      case MessageType.shelter:
+        return RelinkColors.pinShelter;
+      case MessageType.missingPerson:
+        return RelinkColors.pinMissing;
+      case MessageType.sos:
+        return RelinkColors.alarmRed;
+    }
+  }
+
+  IconData _meshIcon(CommunityItem item) {
+    switch (item.type) {
+      case MessageType.report:
+        return Icons.warning_amber;
+      case MessageType.shelter:
+        return Icons.home;
+      case MessageType.missingPerson:
+        return Icons.person;
+      case MessageType.sos:
+        return Icons.sos;
+    }
+  }
+
+  void _showMeshItemSheet(BuildContext context, CommunityItem item) {
+    showModalBottomSheet(
+      context: context,
+      builder: (sheetContext) => _Sheet(
+        title: item.title,
+        body: _meshBody(item),
+        trustLine: item.viaMesh
+            ? '📡 Received via Mesh (${item.hops} ${item.hops == 1 ? 'hop' : 'hops'}) · reported ${relativeTime(item.timestamp)}'
+            : '🌐 Shared from this phone · ${relativeTime(item.timestamp)}',
+      ),
+    );
+  }
+
+  String _meshBody(CommunityItem item) {
+    final p = item.payload;
+    switch (item.type) {
+      case MessageType.report:
+        return p['description'] as String? ??
+            'Hazard reported nearby (${p['type'] ?? 'unknown'}).';
+      case MessageType.shelter:
+        final contact = p['contact_info'] as String?;
+        return contact != null && contact.isNotEmpty
+            ? 'Relief camp / shelter. Contact: $contact'
+            : 'Relief camp / shelter';
+      case MessageType.missingPerson:
+        return p['description'] as String? ?? 'Last seen near this location.';
+      case MessageType.sos:
+        return 'Emergency SOS relayed through the mesh.';
+    }
   }
 
   Marker _pin(LatLng point, Color color,

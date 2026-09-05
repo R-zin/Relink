@@ -24,9 +24,33 @@ class PeerInfo {
   });
 }
 
+/// The surface [MeshManager] needs from a mesh transport. Abstracting it lets
+/// unit tests drive the flooding engine with an in-memory fake (the real
+/// [NearbyTransport] constructs the Nearby Connections plugin, which needs a
+/// platform channel that doesn't exist in `flutter test`).
+abstract class MeshTransportApi implements Listenable {
+  MeshTransportStatus get status;
+  int get peerCount;
+
+  /// Reverse-chronological transport event log (used by the debug viewer).
+  List<String> get eventLog;
+
+  Future<void> Function(String endpointId, Uint8List bytes)? onPayloadReceived;
+  void Function(PeerInfo peer)? onPeerConnected;
+  void Function(String endpointId)? onPeerDisconnected;
+
+  Future<bool> start();
+  Future<void> stop();
+  Future<int> broadcastBytes(Uint8List bytes, {String? exceptEndpointId});
+  Future<void> sendToEndpoint(String endpointId, Uint8List bytes);
+
+  /// Debug viewer hook: send a plain UTF-8 text ping to every peer.
+  Future<int> sendTestMessage(String message);
+}
+
 /// Thin, resilient wrapper around Google Nearby Connections API.
 /// Uses Strategy.P2P_CLUSTER with serviceId 'in.relink.mesh'.
-class NearbyTransport extends ChangeNotifier {
+class NearbyTransport extends ChangeNotifier implements MeshTransportApi {
   static const String serviceId = 'in.relink.mesh';
   static const Strategy strategy = Strategy.P2P_CLUSTER;
 
@@ -34,18 +58,26 @@ class NearbyTransport extends ChangeNotifier {
   final Nearby _nearby = Nearby();
 
   MeshTransportStatus _status = MeshTransportStatus.idle;
+  @override
   MeshTransportStatus get status => _status;
 
   final Map<String, PeerInfo> _connectedPeers = {};
   Map<String, PeerInfo> get connectedPeers => Map.unmodifiable(_connectedPeers);
+  @override
   int get peerCount => _connectedPeers.length;
 
   final List<String> _eventLog = [];
+  @override
   List<String> get eventLog => List.unmodifiable(_eventLog);
 
-  // Callbacks for higher layer (flooding engine / probe)
-  void Function(String endpointId, Uint8List bytes)? onPayloadReceived;
+  // Callbacks for higher layer (flooding engine / probe). Returns a Future so
+  // callers (and tests) can await full handling of the payload; the BLE path
+  // ignores the return value.
+  @override
+  Future<void> Function(String endpointId, Uint8List bytes)? onPayloadReceived;
+  @override
   void Function(PeerInfo peer)? onPeerConnected;
+  @override
   void Function(String endpointId)? onPeerDisconnected;
 
   NearbyTransport({required this.localDeviceId});
@@ -93,6 +125,7 @@ class NearbyTransport extends ChangeNotifier {
   }
 
   /// Start concurrent advertising and discovery for P2P cluster.
+  @override
   Future<bool> start() async {
     final hasPermissions = await checkAndRequestPermissions();
     if (!hasPermissions) {
@@ -140,6 +173,7 @@ class NearbyTransport extends ChangeNotifier {
   }
 
   /// Stop mesh radios and disconnect peers.
+  @override
   Future<void> stop() async {
     try {
       await _nearby.stopAdvertising();
@@ -225,7 +259,15 @@ class NearbyTransport extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Send bytes to a single connected peer by endpointId (used by the
+  /// peer-greeting burst sync).
+  @override
+  Future<void> sendToEndpoint(String endpointId, Uint8List bytes) async {
+    await _nearby.sendBytesPayload(endpointId, bytes);
+  }
+
   /// Broadcast bytes to all connected peers, optionally excluding sender.
+  @override
   Future<int> broadcastBytes(Uint8List bytes, {String? exceptEndpointId}) async {
     int sentCount = 0;
     for (final peerId in _connectedPeers.keys) {
@@ -241,6 +283,7 @@ class NearbyTransport extends ChangeNotifier {
   }
 
   /// Send a test text string to all peers.
+  @override
   Future<int> sendTestMessage(String message) async {
     final bytes = Uint8List.fromList(utf8.encode(message));
     final count = await broadcastBytes(bytes);

@@ -178,6 +178,7 @@ class ApiClient {
         path: '/sos',
         body: {
           'device_id': msg.originDeviceId,
+          'client_msg_id': msg.id, // idempotent multi-relay flush (Phase 3)
           'lat': p['lat'],
           'lng': p['lng'],
           if (p['plaintext_medical'] != null)
@@ -197,6 +198,7 @@ class ApiClient {
           'lng': p['lng'],
           if (p['description'] != null) 'description': p['description'],
           'device_id': msg.originDeviceId,
+          'client_msg_id': msg.id, // idempotent multi-relay flush (Phase 3)
         },
       );
     case MessageType.shelter:

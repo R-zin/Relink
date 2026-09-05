@@ -8,6 +8,7 @@ import 'services/api_client.dart';
 import 'services/location_service.dart';
 import 'services/medical_profile_store.dart';
 import 'services/sync_service.dart';
+import 'storage/community_store.dart';
 import 'storage/outbox_dao.dart';
 import 'theme.dart';
 
@@ -24,6 +25,7 @@ class RelinkApp extends StatefulWidget {
 
 class _RelinkAppState extends State<RelinkApp> {
   late final OutboxDao _outbox;
+  late final CommunityStore _communityStore;
   late final ApiClient _apiClient;
   late final SyncService _syncService;
   MeshManager? _meshManager;
@@ -32,6 +34,7 @@ class _RelinkAppState extends State<RelinkApp> {
   void initState() {
     super.initState();
     _outbox = OutboxDao();
+    _communityStore = CommunityStore();
     _apiClient = ApiClient();
     _syncService = SyncService(outbox: _outbox, poster: _apiClient.postJson)
       ..start();
@@ -44,6 +47,7 @@ class _RelinkAppState extends State<RelinkApp> {
       localDeviceId: devId,
       outboxDao: _outbox,
       syncService: _syncService,
+      communityStore: _communityStore,
     );
     await mgr.startMesh();
     if (mounted) setState(() => _meshManager = mgr);
@@ -62,6 +66,7 @@ class _RelinkAppState extends State<RelinkApp> {
     return MultiProvider(
       providers: [
         Provider<OutboxDao>.value(value: _outbox),
+        Provider<CommunityStore>.value(value: _communityStore),
         Provider<ApiClient>.value(value: _apiClient),
         Provider<SyncService>.value(value: _syncService),
         ChangeNotifierProvider<MeshManager?>.value(value: _meshManager),

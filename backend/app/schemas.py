@@ -51,6 +51,7 @@ class SosCreate(BaseModel):
     lng: float = Field(ge=-180, le=180)
     plaintext_medical: PlaintextMedical | None = None
     encrypted_medical: str | None = None  # opaque base64 AES-GCM ciphertext
+    client_msg_id: str | None = None  # Phase 3 mesh message id for idempotent relay flush
 
 
 class SosEventOut(BaseModel):
@@ -62,6 +63,7 @@ class SosEventOut(BaseModel):
     lng: float
     plaintext_medical: dict[str, Any] | None
     encrypted_medical: str | None
+    client_msg_id: uuid.UUID | None
     status: str
     created_at: datetime
 
@@ -81,6 +83,7 @@ class ReportCreate(BaseModel):
     lng: float = Field(ge=-180, le=180)
     description: str | None = None
     device_id: str | None = None
+    client_msg_id: str | None = None  # Phase 3 mesh message id for idempotent relay flush
 
 
 class ReportOut(BaseModel):
@@ -92,6 +95,7 @@ class ReportOut(BaseModel):
     lng: float
     description: str | None
     device_id: uuid.UUID | None
+    client_msg_id: uuid.UUID | None
     confirm_count: int
     last_confirmed_at: datetime | None
     created_at: datetime

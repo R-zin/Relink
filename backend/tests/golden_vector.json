@@ -1,0 +1,12 @@
+{
+  "comment": "Golden cross-language vector. Dart AesGcm.with256bits SecretBox.concatenation() == base64([12B nonce][ciphertext][16B tag]). Python AESGCM must decrypt to `expected`.",
+  "key_base64": "AvhVqE/lK/Jv/o5kalpkYjBKHJSxolRrw9j52m1qqCQ=",
+  "nonce_base64": "MTIzNDU2Nzg5MGFi",
+  "ciphertext_base64": "MTIzNDU2Nzg5MGFiih5UBr/B5OwTvwfWmewx7HRSEbpkeLxM53YC2EzAStlJf10/IvzWEybVb0gXMIKAkfXLVLMxN4xb5IDEDozPAFyHv9Oc0c5VrYVDENFCMi04Mz8YoEVP8I1Ln5KFK58vwDWzQGaK/+6KM3FnNDTbBgjwHsg54BfJqcwCR2ZXpcuv79WVDnv/BptMNuGo1XW3wjc1c4mPeQVwCgiZPfkTlMkiISJPaZHo7uAuntYY3aR5qSVcV5kOueaWjwI4XAtD1zlO",
+  "expected": {
+    "conditions": "Asthma, Type-2 Diabetes",
+    "medications": "Salbutamol inhaler, Metformin 500mg",
+    "insurance_provider": "Star Health",
+    "insurance_policy_number": "P/161130/01/2024/000001"
+  }
+}

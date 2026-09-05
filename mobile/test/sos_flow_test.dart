@@ -13,6 +13,8 @@ void main() {
   });
 
   Future<OutboxDao> freshDao(String name) async {
+    // Delete any stale file from a prior run (named ffi DBs persist on disk).
+    await databaseFactoryFfi.deleteDatabase(name);
     final db = await databaseFactoryFfi.openDatabase(
       name,
       options: OpenDatabaseOptions(
@@ -64,6 +66,7 @@ void main() {
     expect(calls.single.key, '/sos');
     expect(calls.single.value, {
       'device_id': 'device-9',
+      'client_msg_id': 'sos-1', // Phase 3 idempotent relay-flush key
       'lat': 9.98,
       'lng': 76.28,
       'plaintext_medical': {'name': 'Asha', 'blood_group': 'O+'},

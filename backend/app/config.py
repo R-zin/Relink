@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     FCM_SERVER_KEY: str | None = None
     LLM_API_KEY: str | None = None
     MEDICAL_CARD_DEMO_KEY: str | None = None
+    DECRYPT_DEMO_PASS: str = "relink-demo"  # Phase 3 break-glass responder auth
     OPEN_METEO_BASE_URL: str = "https://api.open-meteo.com"
     NASA_EONET_URL: str = "https://eonet.gsfc.nasa.gov/api/v3"
     SACHET_RSS_URL: str | None = None

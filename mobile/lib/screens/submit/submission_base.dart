@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../config.dart';
+import '../../mesh/mesh_manager.dart';
 import '../../models/mesh_message.dart';
 import '../../services/location_service.dart';
 import '../../services/sync_service.dart';
@@ -83,8 +84,9 @@ abstract class SubmissionFormState<T extends StatefulWidget> extends State<T> {
     );
   }
 
-  /// Enqueue (always) then attempt one immediate flush; calm snackbar either
-  /// way; pops the form on success so the user lands back at the hub.
+  /// Enqueue (always), gossip to nearby mesh peers, then attempt one immediate
+  /// flush; calm snackbar either way; pops the form on success so the user
+  /// lands back at the hub.
   Future<void> submitMessage(MessageType type, Map<String, dynamic> payload) async {
     if (_submitting) return;
     setState(() => _submitting = true);
@@ -92,6 +94,7 @@ abstract class SubmissionFormState<T extends StatefulWidget> extends State<T> {
     // async gaps below is guarded by `mounted`, but reads are cheap to hoist).
     final outbox = context.read<OutboxDao>();
     final sync = context.read<SyncService>();
+    final mesh = context.read<MeshManager?>();
     try {
       final message = MeshMessage(
         id: const Uuid().v4(),
@@ -102,14 +105,21 @@ abstract class SubmissionFormState<T extends StatefulWidget> extends State<T> {
         timestamp: DateTime.now().toUtc().toIso8601String(),
         payload: payload,
       );
-      await outbox.enqueue(message);
-      await sync.flushOnce();
+      if (mesh != null) {
+        // Mesh path: caches locally (offline map/feed), gossips to peers, and
+        // enqueues for cloud flush. Falls back to plain outbox+sync if absent.
+        await mesh.broadcastMessage(message);
+        await sync.flushOnce();
+      } else {
+        await outbox.enqueue(message);
+        await sync.flushOnce();
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(sync.lastFlushSentAll
               ? 'Submitted ✓ — thank you, this helps people nearby.'
-              : 'Saved — will send when connected.'),
+              : 'Saved — shared with nearby phones and will send when connected.'),
         ),
       );
       Navigator.of(context).pop();

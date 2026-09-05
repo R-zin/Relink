@@ -1,5 +1,9 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../mesh/mesh_manager.dart';
 import '../theme.dart';
 import 'alerts/alerts_screen.dart';
 import 'debug/outbox_viewer.dart';
@@ -21,6 +25,7 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
+  StreamSubscription<SosRelayNotice>? _relaySub;
 
   static const _screens = [
     SosScreen(),
@@ -31,7 +36,46 @@ class _HomeShellState extends State<HomeShell> {
   ];
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Subscribe once to inbound SOS relay events so any tab can show the calm
+    // "relayed a beacon" banner. Guard against re-subscribing on rebuilds.
+    final mesh = context.read<MeshManager?>();
+    if (mesh != null && _relaySub == null) {
+      _relaySub = mesh.relayNotices.listen(_onRelayNotice);
+    }
+  }
+
+  void _onRelayNotice(SosRelayNotice notice) {
+    if (!mounted) return;
+    final who = notice.victimName != null ? ' for ${notice.victimName}' : '';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 6),
+        content: Row(
+          children: [
+            const Icon(Icons.broadcast_on_personal_outlined),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Relayed an emergency beacon$who — will upload when signal returns.',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _relaySub?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final mesh = context.watch<MeshManager?>();
     return Scaffold(
       appBar: AppBar(
         title: GestureDetector(
@@ -40,6 +84,12 @@ class _HomeShellState extends State<HomeShell> {
           ),
           child: const Text('RELINK'),
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Center(child: _MeshRadarPill(mesh: mesh)),
+          ),
+        ],
       ),
       body: IndexedStack(index: _index, children: _screens),
       bottomNavigationBar: NavigationBar(
@@ -71,6 +121,52 @@ class _HomeShellState extends State<HomeShell> {
             label: 'Stats',
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// AppBar "Live Mesh Radar" (phase_3.md §5.2): green pill when ≥1 peer is
+/// connected, amber "searching" otherwise. Watches the shared [MeshManager].
+class _MeshRadarPill extends StatelessWidget {
+  const _MeshRadarPill({required this.mesh});
+
+  final MeshManager? mesh;
+
+  @override
+  Widget build(BuildContext context) {
+    final peers = mesh?.peerCount ?? 0;
+    final connected = peers > 0;
+    final color = connected ? const Color(0xFF3D9B6E) : const Color(0xFFC99417);
+    final dot = connected ? '🟢' : '🟡';
+    final label = connected ? '$peers Peer${peers == 1 ? '' : 's'} Nearby' : 'Searching for mesh…';
+
+    return Tooltip(
+      message: connected
+          ? 'Offline mesh active — $peers phone${peers == 1 ? '' : 's'} in range'
+          : 'Looking for nearby phones to form an offline mesh',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withValues(alpha: 0.5)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(dot, style: const TextStyle(fontSize: 11)),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

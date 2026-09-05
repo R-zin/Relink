@@ -1,5 +1,6 @@
 import 'package:uuid/uuid.dart';
 
+import '../../crypto/medical_crypto.dart';
 import '../../mesh/mesh_manager.dart';
 import '../../models/medical_profile.dart';
 import '../../models/mesh_message.dart';
@@ -12,18 +13,26 @@ import '../../storage/outbox_dao.dart';
 /// Phase 3 contract: Enqueue first (outbox is local source of truth),
 /// broadcast immediately to nearby BLE mesh peers via [MeshManager],
 /// and attempt one flush over internet path via [SyncService].
+///
+/// The sensitive half of the medical card is AES-256-GCM encrypted into
+/// [MeshMessage.encryptedPayload] before it leaves the device (master plan §5).
+/// Safety rule (phase_3.md §7.2): if the key is missing/invalid, the SOS goes
+/// out with `encryptedPayload == null` — encryption never blocks a beacon.
 class SosController {
   SosController({
     required OutboxDao outbox,
     required SyncService sync,
     MeshManager? meshManager,
+    MedicalCrypto? crypto,
   })  : _outbox = outbox,
         _sync = sync,
-        _meshManager = meshManager;
+        _meshManager = meshManager,
+        _crypto = crypto ?? MedicalCrypto();
 
   final OutboxDao _outbox;
   final SyncService _sync;
   final MeshManager? _meshManager;
+  final MedicalCrypto _crypto;
 
   /// Returns true when the SOS reached the backend on this attempt,
   /// false when it sits queued for later (offline).
@@ -35,6 +44,19 @@ class SosController {
     String? messageId,
     DateTime? now,
   }) async {
+    // Encrypt the sensitive half. Never let crypto failure block the SOS:
+    // any error or missing key -> encryptedPayload stays null and we send
+    // plaintext-only (public fields), which responders can still act on.
+    String? encryptedPayload;
+    if (!profile.sensitive.isEmpty) {
+      try {
+        encryptedPayload =
+            await _crypto.encryptFields(profile.sensitive.toJson());
+      } catch (_) {
+        encryptedPayload = null; // fall back to unencrypted
+      }
+    }
+
     final message = MeshMessage(
       id: messageId ?? const Uuid().v4(),
       type: MessageType.sos,
@@ -47,11 +69,9 @@ class SosController {
         'lng': lng,
         if (!profile.plaintext.isEmpty)
           'plaintext_medical': profile.plaintext.toJson(),
-        if (!profile.sensitive.isEmpty)
-          'sensitive_medical': profile.sensitive.toJson(),
       },
-      // AES-GCM encryption will wrap sensitive profile in next step
-      encryptedPayload: null,
+      // Sensitive fields travel ONLY here (encrypted) — never in plaintext payload.
+      encryptedPayload: encryptedPayload,
     );
 
     // 1. Enqueue to local outbox
@@ -67,4 +87,3 @@ class SosController {
     return _sync.lastFlushSentAll;
   }
 }
-

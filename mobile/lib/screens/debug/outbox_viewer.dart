@@ -25,7 +25,7 @@ class _OutboxViewerState extends State<OutboxViewer> with SingleTickerProviderSt
   List<Map<String, Object?>> _rows = [];
   bool _flushing = false;
 
-  NearbyTransport? _transport;
+  MeshTransportApi? _transport;
   String _deviceId = 'loading...';
   String _lastMessageReceived = '(none)';
 

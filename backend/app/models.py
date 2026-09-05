@@ -37,6 +37,8 @@ class SosEvent(Base):
     lng: Mapped[float]
     plaintext_medical: Mapped[dict | None] = mapped_column(JSONB)
     encrypted_medical: Mapped[str | None] = mapped_column(Text)  # opaque base64 AES-GCM (Phase 3)
+    # Phase 3 idempotency key (migration 0002): client-generated mesh message id.
+    client_msg_id: Mapped[uuid.UUID | None] = mapped_column(unique=True)
     status: Mapped[str] = mapped_column(Text, server_default="active")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -52,6 +54,8 @@ class Report(Base):
     lng: Mapped[float]
     description: Mapped[str | None] = mapped_column(Text)
     device_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("devices.id"))
+    # Phase 3 idempotency key (migration 0002): client-generated mesh message id.
+    client_msg_id: Mapped[uuid.UUID | None] = mapped_column(unique=True)
     confirm_count: Mapped[int] = mapped_column(Integer, server_default="0")
     last_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -22,13 +22,25 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 @router.post("", status_code=201, response_model=ReportOut)
 async def create_report(body: ReportCreate, db: AsyncSession = Depends(get_db)):
     device_uuid = parse_device_uuid(body.device_id)
+    client_msg_uuid = parse_device_uuid(body.client_msg_id)
     await upsert_device(db, device_uuid)
+
+    # Phase 3 idempotency: a mesh relay may flush the same report twice. Return
+    # the existing row as 200 rather than duplicating or 500ing on the unique key.
+    if client_msg_uuid is not None:
+        existing = (
+            await db.execute(select(Report).where(Report.client_msg_id == client_msg_uuid))
+        ).scalar_one_or_none()
+        if existing is not None:
+            return existing
+
     report = Report(
         type=body.type.value,
         lat=body.lat,
         lng=body.lng,
         description=body.description,
         device_id=device_uuid,
+        client_msg_id=client_msg_uuid,
     )
     db.add(report)
     await db.commit()
