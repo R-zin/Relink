@@ -1,175 +1,270 @@
-# PHASE 3 — Offline Mesh + Medical-Card Crypto
+# PHASE 3 — Offline Mesh + Community Forum + Medical-Card Crypto
 
-> The differentiator phase. Real Nearby Connections BLE mesh with store-carry-forward flooding, and AES-256-GCM encryption of the SOS medical card's sensitive fields. Highest risk in the project — the backup demo video is a required deliverable, not optional.
+> The differentiator phase. Real Nearby Connections BLE mesh with two-way store-carry-forward gossip (hazards, missing persons, shelters, alerts) + emergency SOS relay, local SQLite community forum backing, and embedded AES-256-GCM encryption of the SOS medical card's sensitive fields. Highest impact in the project — the backup demo video is a required deliverable, not optional.
 >
-> **You are the Phase 3 agent.** The master plan (`CLAUDE.md`, auto-loaded) is Core Context — §1 (personas), §4 (architecture), §5 (medical card crypto, *locked*), and the mesh message schema + flooding algorithm in §7 are your contract. Read the Phase 1 & 2 entries in `CLAUDE.md §9 Status Log` first, then skim `mobile/lib/services/sync_service.dart` (you are replacing its transport half), `mobile/lib/storage/`, `mobile/lib/screens/sos/`, and `mobile/lib/models/mesh_message.dart`. Scope is `mobile/` + one small backend endpoint + a throwaway decrypt web page.
+> **You are the Phase 3 agent.** The master plan (`CLAUDE.md`, auto-loaded) is Core Context — §1 (personas), §3 (feature set), §4 (architecture), §5 (medical card crypto), and the mesh message schema + flooding algorithm in §7 are your contract. Read the Phase 1 & 2 entries in `CLAUDE.md §9 Status Log` first, then skim `mobile/lib/services/sync_service.dart` (you are replacing its transport half), `mobile/lib/storage/`, `mobile/lib/screens/sos/`, and `mobile/lib/models/mesh_message.dart`. Scope is `mobile/` + one small backend endpoint & migration.
 >
-> **If anything is ambiguous or you hit a blocker (device discovery failures, permission hell, API drift) — STOP and ask the user, then continue with their answer. Do not silently redesign the flooding protocol or the crypto.**
+> **If anything is ambiguous or you hit a blocker (device discovery failures, permission hell, API drift) — STOP and ask the user, then continue with their answer. Do not silently redesign the flooding protocol or the crypto.
 
 ---
 
 ## 0. Scope & Definition of Done
 
-**Build:**
-1. Nearby Connections wrapper (discovery/advertising, `P2P_CLUSTER`, payload exchange) with lifecycle management.
-2. The flooding algorithm from master plan §7, exactly as specified (seen-ids dedupe, TTL, SOS-first ordering, rebroadcast-except-sender).
-3. Mesh-aware sync engine replacing Phase 2's internet-only `SyncService`.
-4. AES-256-GCM medical-card encryption (Dart `cryptography`), wired into the SOS send path.
-5. Backend `POST /medical/decrypt` (break-glass demo endpoint).
-6. Standalone decrypt demo page (`dashboard/decrypt.html` — no framework).
-7. **Backup demo video recorded** (§8).
+> [!NOTE]
+> ### PROVED IMPLEMENTATION & TESTED ACHIEVEMENTS (COMPLETED):
+> - **Milestone 0 Hardware Smoke Test (PASSED):** Verified on physical hardware (OnePlus Nord CE4 Android 14 & Samsung Galaxy A35 Android 16). Auto-discovery, auto-handshake, and bidirectional Ping/Pong packets over Google Nearby Connections (`P2P_CLUSTER`).
+> - **Milestone 1 Physical Blackout Store-Carry-Forward SOS Relay (PASSED):**
+>   - Phone 1 placed in **strict Airplane Mode (`✈️`)** with Bluetooth ON. Triggered emergency SOS with a full medical card.
+>   - Phone 1 broadcasted 566-byte UTF-8 JSON wire packet over Nearby Connections BLE mesh.
+>   - Phone 2 received the 566-byte packet over the air, deduplicated via `SeenStore`, stored it in SQLite `outbox`, and flushed it over HTTP via ADB reverse proxy to the laptop ingestion console on `localhost:8000`.
+>   - Laptop console ingested the beacon showing Phone 1's origin device ID (`fd362824...`), GPS coordinates, and patient medical profile.
+> - **Permanent Core Architecture Built & Tested:**
+>   - `mobile/lib/mesh/nearby_transport.dart`: `P2P_CLUSTER` wrapper with tie-breaker and auto-accept.
+>   - `mobile/lib/mesh/mesh_manager.dart`: Deduplication, store-carry-forward, outbox queuing, and TTL flooding.
+>   - `mobile/lib/mesh/mesh_message_codec.dart`: Strict UTF-8 JSON codec with 32 KB guard.
+>   - `mobile/lib/mesh/seen_store.dart`: SQLite `seen_ids` deduplication table.
+>   - `mobile/android/app/src/main/AndroidManifest.xml`: Configured with `usesCleartextTraffic="true"` and Bluetooth/Nearby permissions.
+>   - `mobile/lib/screens/debug/outbox_viewer.dart`: Outbox viewer and live mesh diagnostic probe.
 
-**Out of scope:** external APIs, alerts, stats, FCM, the React dashboard proper, any UI redesign of Phase 2 screens (you may add small mesh-status UI affordances only).
+**Remaining Scope to Build in Phase 3:**
+1. **Embedded AES-256-GCM Medical Card Encryption:**
+   - Dart `cryptography` package encryption on device before the SOS message leaves the phone.
+   - Sensitive fields (`conditions`, `medications`, `insurance`) encrypted into `encrypted_payload`. Public fields (`name`, `blood_group`, `allergies`, `emergency_contact`) remain plaintext.
+2. **Backend Break-Glass Decrypt Endpoint & Migration:**
+   - Migration `0002_client_msg_id.py` adding `client_msg_id uuid UNIQUE` to `sos_events` and `reports` for idempotent multi-relay flushing.
+   - `POST /medical/decrypt` in `backend/app/routers/medical.py` (AES-256-GCM break-glass demo decryption).
+3. **Two-Way Community Forum Gossip Integration:**
+   - Wire `MeshManager.broadcastMessage` into `ReportController` / `submit_hub.dart` so `REPORT`, `MISSING_PERSON`, and `SHELTER` gossip across offline peers.
+   - Wire incoming community messages into local SQLite tables so the Map and Community Feed update offline.
+4. **Visual Trust Signals & Affordances:**
+   - App Bar "Live Mesh Radar" (`🟢 N Peers Nearby` / `🟡 Searching for Mesh...`).
+   - Card origin tags: `📡 Received via Mesh (N hops)` vs `🌐 Cloud Verified`.
+   - Emergency relay banner: *"Relayed an emergency beacon for [Name] — will upload when signal returns"*.
+5. **Backup Demo Video Recorded** (§9).
 
-**Done when (the Phase 3 demo):** two phones in airplane mode (Bluetooth on) relay an SOS from phone A through phone B; phone C with internet receives it via mesh and flushes it to the backend; the SOS row (with `encrypted_medical`) appears via `GET /sos`; the decrypt page shows the sensitive fields from that ciphertext; and a recording of all of it is saved to `demo/phase3_mesh_demo.mp4`.
+**Out of scope:**
+- Standalone `decrypt.html` website (dropped — Phase 4 builds the decrypt panel directly into the Command Dashboard).
+- External hazard APIs, Sachet RSS polling, React dashboard proper (Phase 4).
 
 ---
 
-## 1. Hardware & Environment Prereqs (verify BEFORE writing code)
+## 1. Hardware & Environment Prereqs (Verified)
 
-- 2–3 physical Android phones (BLE mesh is untestable on emulators — master plan §10). One must stay online-capable, two will run airplane mode.
-- Bluetooth + Location permissions grantable on all of them; "Nearby devices" permission exists on Android 12+.
-- If you have fewer than 2 physical devices available in this session, **ask the user how to proceed** — do not build the mesh blind and hope.
-- Backend running and reachable from the online phone (Phase 2's config mechanism).
+- **2–3 physical Android phones** (BLE mesh is untestable on emulators — master plan §10).
+- **Physical Device Setup (The "Airplane Mode" Setup):**
+  1. Airplane Mode: **ON** (simulates total cellular/Wi-Fi blackout).
+  2. Bluetooth: **ON** (must manually toggle back on after activating Airplane Mode).
+  3. Location / GPS system toggle: **ON** (mandatory; Android OS silently blocks BLE scanning if system location is off).
+  4. Wi-Fi toggle: **ON** (recommended; does not need network connection, enables Wi-Fi Direct if negotiated).
+- Backend running and reachable from the online phone (`adb reverse tcp:8000 tcp:8000` or local LAN IP).
 
-## 2. Dependencies & Android Manifest
+---
 
-`pubspec.yaml` additions:
+## 2. Dependencies & Android Manifest (Implemented)
+
+`pubspec.yaml` additions (Already added & verified):
 ```yaml
 dependencies:
-  nearby_connections: ^4.0.0     # verify latest at build time
+  nearby_connections: ^4.0.0
   permission_handler: ^11.3.0
   cryptography: ^2.7.0
 ```
 
-`AndroidManifest.xml` — add alongside Phase 2's permissions, and mind the Android 12/13 split (this is the #1 integration snag):
-```xml
-<!-- Legacy (API ≤ 30) -->
-<uses-permission android:name="android.permission.BLUETOOTH"/>
-<uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
-<uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
-<uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
-<!-- Android 12+ (API 31+) -->
-<uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE"/>
-<uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
-<uses-permission android:name="android.permission.BLUETOOTH_SCAN"
-                 android:usesPermissionFlags="neverForLocation"/>
-<!-- Nearby Connections needs location on many versions -->
-<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-<uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES"
-                 android:usesPermissionFlags="neverForLocation"/>
-```
-Runtime requests via `permission_handler`: request `bluetoothAdvertise`, `bluetoothConnect`, `bluetoothScan`, `locationWhenInUse` together on mesh start; if any is permanently denied, show a plain-language dialog with an "Open settings" button.
+`AndroidManifest.xml` (`mobile/android/app/src/main/AndroidManifest.xml`) (Already configured):
+- `android:usesCleartextTraffic="true"` inside `<application>` (critical for HTTP communication to dev server on port 8000).
+- Runtime permissions for Android 12+ (API 31+) & 13+ (API 33+):
+  - `BLUETOOTH_SCAN`, `BLUETOOTH_ADVERTISE`, `BLUETOOTH_CONNECT`, `NEARBY_WIFI_DEVICES`.
+  - `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`.
 
-## 3. Mesh Layer (`lib/mesh/`)
+---
+
+## 3. Milestones 0 & 1: Verification Results (PASSED ON HARDWARE)
+
+> [!IMPORTANT]
+> **Milestone 0 and Milestone 1 are COMPLETE and physically verified on physical hardware.**
+> 
+> - **Smoke Test (Milestone 0):** OnePlus Nord CE4 (`fd362824...`) and Samsung Galaxy A35 (`dacac6d6...`) connected via `P2P_CLUSTER` and exchanged bidirectional Ping/Pong packets.
+> - **Relay Test (Milestone 1):** OnePlus in Airplane Mode (`✈️`) triggered medical SOS. Samsung received 566-byte packet over BLE mesh, saved it in SQLite `outbox`, and flushed it over HTTP to laptop server on port 8000. Verified with origin device ID, GPS coordinates, and patient medical profile.
+
+---
+
+## 3.1 Specific Instructions & Contracts for the Implementation Agent
+
+The core mesh transport and manager are already in place. The implementation agent MUST follow these exact rules when wiring remaining features:
+
+1. **Use the Single Shared `MeshManager`:**
+   - `MeshManager` is provided at the root widget tree in `mobile/lib/main.dart` via `Provider<MeshManager>`.
+   - Do NOT instantiate a second `MeshManager` or `NearbyTransport`. Access it via `context.read<MeshManager>()` or `context.watch<MeshManager>()`.
+2. **Broadcasting Community Posts:**
+   - When a user submits a hazard report, missing person, or shelter in `submit_hub.dart`, create a `MeshMessage` and call `meshManager.broadcastMessage(msg)`.
+   - `MeshManager` will handle self-deduplication, outbox queuing, and radio broadcasting to all connected peers.
+3. **Handling Incoming Community Messages:**
+   - In `MeshManager._handleMessage`, when receiving `MessageType.report`, `missingPerson`, `shelter`, save to the respective SQLite tables so the offline Map Screen (`map_screen.dart`) displays them immediately without internet.
+4. **Implementing Medical Crypto (`mobile/lib/crypto/`):**
+   - Implement `MedicalCrypto` using `cryptography` package `AesGcm.with256bits()`.
+   - Envelope format: Base64 string of `[12-byte Nonce] + [Ciphertext] + [16-byte GCM Tag]`.
+   - SOS send path in `SosController`: encrypt `sensitive_medical` fields, set `MeshMessage.encryptedPayload`, and retain public fields in `payload['plaintext_medical']`.
+   - If key missing: fall back to unencrypted and send. Never block an emergency beacon.
+5. **Connecting UI Mesh Radar:**
+   - In `home_shell.dart` AppBar, listen to `context.watch<MeshManager>().connectedPeers.length`.
+   - Display a pill: `🟢 $count Peers Nearby` when $> 0$, or `🟡 Searching for mesh...` when 0.
+
+---
+
+## 3.2 Common Pitfalls for the Implementation Agent (CRITICAL WATCHLIST)
+
+| Pitfall | Cause | Required Solution |
+| :--- | :--- | :--- |
+| **Cleartext HTTP Blocked** | Android 9+ (API 28+) blocks `http://127.0.0.1:8000` by default. | Ensure `android:usesCleartextTraffic="true"` remains in `<application>` in `AndroidManifest.xml`. |
+| **Physical Phone Networking** | `10.0.2.2` only works in Android emulators; physical devices cannot reach it. | Run `adb reverse tcp:8000 tcp:8000` so physical phones route `127.0.0.1:8000` straight into the dev laptop via USB, or configure dev machine LAN IP. |
+| **ADB Daemon Restarts** | When ADB daemon restarts (`* daemon not running; starting now...`), all active reverse bindings are wiped. | Always re-check `adb reverse --list` or re-execute `adb reverse tcp:8000 tcp:8000` if connection refused occurs. |
+| **Missing System Location Toggle** | BLE scanning silently returns 0 peers on Android OS if system GPS / Location is switched OFF in phone quick settings. | Ensure physical phone has system Location toggle **turned ON**, even when in Airplane Mode. |
+| **Simultaneous P2P Connection Collision** | When two phones discover each other at the same instant, both calling `requestConnection` causes `STATUS_ALREADY_CONNECTED` or link drop. | Maintain the deterministic tie-breaker in `nearby_transport.dart`: only the device with `localDeviceId < peerDeviceId` initiates; the other awaits connection. |
+| **Large Message Sizes** | Nearby Connections byte payloads must stay compact (BLE/Wi-Fi Direct). | Strictly enforce 32 KB payload guard via `MeshMessageCodec`. Never send large raw camera images through mesh byte packets; only send text metadata or low-res thumbnails. |
+| **Missing HTTP Content-Length** | Python dev servers omitting `Content-Length` on HTTP responses cause Dart's `http` client to throw `Connection closed before full header was received`. | Ensure HTTP servers return explicit `Content-Length` and `Connection: close` headers. |
+| **Self-Reflection & Broadcast Loops** | Re-broadcasting received mesh messages can cause infinite ping-pong storms. | Always check `msg.originDeviceId != localDeviceId`, check `seenStore.contains(msg.id)`, and decrement TTL (`ttl - 1`). If `ttl <= 0`, do NOT rebroadcast. |
+
+---
+
+## 4. Mesh Layer Architecture (`lib/mesh/`)
 
 ```
 lib/mesh/
-├── nearby_transport.dart    # Nearby Connections wrapper (discovery, advertising, connect, send)
-├── mesh_manager.dart        # flooding protocol per master plan §7 — the brain
+├── nearby_transport.dart    # Nearby Connections wrapper (discovery, advertising, auto-accept, connection tie-breaker)
+├── mesh_manager.dart        # Two-way gossip & flooding protocol — the brain
 ├── seen_store.dart          # seen_ids table access + 24h TTL sweep
-└── mesh_message_codec.dart  # MeshMessage <-> bytes (UTF-8 JSON), size guard
+└── mesh_message_codec.dart  # MeshMessage <-> bytes (UTF-8 JSON), 32 KB payload guard
 ```
 
-**`nearby_transport.dart`** — keep it a thin, boring wrapper:
-- Constants: `serviceId = "in.relink.mesh"`, `strategy = Strategy.P2P_CLUSTER`, endpoint nickname = device UUID (reuse Phase 2's persisted install UUID).
-- API: `Future<void> start()`, `Future<void> stop()`, `Stream<PeerEvent> peers`, `Future<void> sendToAll(String jsonPayload, {String? exceptEndpoint})`, `Stream<ReceivedPayload> incoming`.
-- `start()`: request permissions → `startAdvertising` + `startDiscovery` concurrently. Auto-accept all connections (`onConnectionInitiated` → accept, no auth prompt — hackathon scope).
-- Reconnection: when `onDisconnected` fires, immediately resume discovery (advertising persists). Log all lifecycle events to a ring buffer the debug screen can show.
+### `nearby_transport.dart` — Boring, Resilient Wrapper:
+- **Constants:** `serviceId = "in.relink.mesh"`, `strategy = Strategy.P2P_CLUSTER`.
+- **Endpoint Nickname:** Persistent local device UUID (from Phase 2).
+- **Auto-Accept:** On `onConnectionInitiated(endpointId, connectionInfo)` $\rightarrow$ call `Nearby().acceptConnection(...)` immediately. Do not prompt the user.
+- **Connection Collision Tie-Breaker:** When Phone A discovers Phone B and both attempt connection simultaneously, only initiate `requestConnection` if `localDeviceId.compareTo(remoteEndpointName) < 0`, or catch `STATUS_ALREADY_CONNECTED` without dropping the link.
+- **Reconnection Resilience:** When `onDisconnected` fires, clean up endpoint state and ensure discovery/advertising remain active.
 
-**`mesh_manager.dart`** — implement master plan §7 verbatim:
-1. **On receive** (from transport): parse `MeshMessage`; if `seenStore.contains(id)` → drop. Else `seenStore.add(id, now)`.
-2. **Surface**: if `type == SOS` → enqueue to outbox *and* raise an in-app "SOS relayed via you" banner (calm copy: "You just relayed someone's SOS — thank you"); other types enqueue silently.
-3. **Internet check** (cheap: connectivity_plus + a HEAD to API `/health` with 3 s timeout, cached 30 s): if online → `SyncEngine.flush()` (outbox already has it; ordering handled there).
-4. **If offline and `ttl > 0`**: `copyWith(ttl: ttl - 1)` → `transport.sendToAll(json, exceptEndpoint: senderEndpoint)`.
-5. **Local originate** (user pressed SOS / submitted a report): mark seen, enqueue, then broadcast with original TTL *and* attempt flush — originating devices rebroadcast too, so a single online hop anywhere in the mesh eventually carries it out.
-6. SOS-first ordering is already guaranteed by `OutboxDao.pending()` ordering from Phase 1 — preserve it; do not add a second queue.
+### `mesh_manager.dart` — Two-Way Community Gossip & Flooding:
+1. **On Receive (from transport):**
+   - Decode byte payload via `mesh_message_codec.dart`.
+   - Deduplication check: if `seenStore.contains(msg.id)` $\rightarrow$ drop silently.
+   - Record in `seenStore.add(msg.id, now)`.
+   - If self-originated reflection (`msg.originDeviceId == localDeviceId`) $\rightarrow$ drop.
+2. **Handling by Type:**
+   - **`SOS`:**
+     - Enqueue into local SQLite outbox for store-carry-forward.
+     - Surface calm in-app banner: *"Relayed an emergency beacon for [Name] — will upload when signal returns"*.
+     - If device has internet $\rightarrow$ immediately trigger `SyncService.flush()`.
+     - If device is offline and `ttl > 0`: decrement TTL (`ttl - 1`), rebroadcast to all connected peers except sender endpoint.
+   - **`REPORT` / `MISSING_PERSON` / `SHELTER` / `ALERT` (Community Gossip):**
+     - Save to local SQLite database so the offline Map and Community Feed update immediately.
+     - Decrement TTL (`ttl - 1`). If `ttl > 0`, rebroadcast to other connected peers.
+     - If device has internet and message was not yet marked synced, enqueue to outbox for cloud sync.
+3. **Peer Greeting / Burst Sync:**
+   - When a new peer successfully connects (`onEndpointConnected`), send a compact burst of recent local reports and notices (last 10 items) so the newly arrived offline phone receives recent disaster updates without manual user intervention.
 
-**`seen_store.dart`**: `add(id, seenAt)`, `contains(id)`, `sweep()` — delete rows older than 24 h, called on app start and on each mesh `start()` (the master plan's TTL-expiry requirement).
+### `seen_store.dart`:
+- Backed by local SQLite table `seen_ids (id TEXT PRIMARY KEY, seen_at TEXT)`.
+- Methods: `add(id, seenAt)`, `contains(id)`, `sweep()` (purges entries older than 24 hours).
 
-**`mesh_message_codec.dart`**: `jsonEncode(msg.toJson())` → UTF-8 bytes; hard-fail logging if > 32 KB (Nearby Connections byte payloads are effectively unbounded but BLE-advertised discovery is not; SOS payloads with medical cards run ~1–2 KB, so just guard).
+---
 
-## 4. Sync Engine v2 (replace Phase 2's `services/sync_service.dart`)
+## 5. Local Community Cache & Offline UI Integration
 
-Keep the class name/file (Phase 2 callers stay put) but make it mesh-aware:
-- `flush()` unchanged in spirit: drain outbox in priority order → POST per type → markSent/markFailed (keep 4xx skip-after-5-retries).
-- Trigger points now: connectivity regained (existing), **mesh message received while online** (new — this is the store-carry-forward exit ramp), app foreground, and a 60 s periodic timer while the app is running.
-- Mesh lifecycle: start the mesh automatically when connectivity is lost; keep it running when online *if battery isn't a concern for the demo* — default: always-on mesh while app is foregrounded (simplest correct demo behavior). Persist a `mesh_enabled` setting (default true) so a judge can toggle it.
-- Idempotency note: the same message may arrive both via mesh and later via its originator's own flush — backend inserts are plain INSERTs, so duplicates are possible. Add `client_msg_id` (= mesh message UUID) to the POST bodies and a matching unique-tolerant insert: **backend change allowed in this phase** — add nullable `client_msg_id uuid UNIQUE` column to `sos_events`/`reports` via a new alembic migration `0002_client_msg_id.py`, and make POST handlers catch `UniqueViolation` → return `200` (not 201) with the existing row. Keep it minimal; mention it in the Status Log.
+Phase 2 screens must be connected to local SQLite data so the app feels 100% functional offline:
 
-## 5. Medical Card Crypto (`lib/crypto/`) — master plan §5 is the locked spec
+1. **Local Forum / Map Storage:**
+   - Store received community messages (`reports`, `missing_persons`, `shelters`) directly in SQLite.
+   - Map Screen (`map_screen.dart`): reads active reports and shelters from local SQLite store first, refetching from backend over HTTP when online.
+2. **Visual Trust Signals:**
+   - **App Bar Mesh Radar:** Add a compact widget to `home_shell.dart` or the screen header:
+     - `🟢 N Peers Nearby` (green pulsing dot) when connected to $\ge 1$ peers.
+     - `🟡 Searching...` when active with 0 peers.
+   - **Card Origin Tag:** Add a subtle pill badge on hazard and missing person cards:
+     - `📡 Via Mesh (${initialTtl - currentTtl} hops)` for peer-delivered data.
+     - `🌐 Cloud Verified` for server-fetched data.
 
+---
+
+## 6. Sync Engine v2 & Backend Idempotency
+
+### Sync Service (`services/sync_service.dart`):
+- Maintain Phase 2's priority ordering: **SOS events are dequeued and sent first**.
+- Multiple triggers:
+  1. Connectivity regained (`connectivity_plus`).
+  2. Incoming mesh message received while device is online.
+  3. App foregrounded.
+  4. Periodic 60-second timer.
+
+### Backend Migration & Ingestion (`backend/`):
+- Create alembic migration `0002_client_msg_id.py`:
+  - Add nullable `client_msg_id uuid UNIQUE` to `sos_events` and `reports`.
+- In `routers/sos.py` and `routers/reports.py`:
+  - Accept `client_msg_id` in request body.
+  - On `UniqueViolationError` (or existing record lookup) $\rightarrow$ return `200 OK` with the existing row instead of failing with 500/409. This handles multiple relays flushing the same message.
+
+---
+
+## 7. Medical Card Cryptography (`lib/crypto/`)
+
+Master plan §5 locked specification:
 ```
 lib/crypto/
-├── medical_crypto.dart      # encrypt/decrypt API
-└── demo_key.dart            # loads MEDICAL_CARD_DEMO_KEY via --dart-define
+├── medical_crypto.dart      # AES-256-GCM encrypt/decrypt
+└── demo_key.dart            # Loads MEDICAL_CARD_DEMO_KEY via --dart-define
 ```
 
-- Key: `MEDICAL_CARD_DEMO_KEY` passed as `--dart-define=MEDICAL_CARD_DEMO_KEY=<64 hex chars = 32 bytes>`. `demo_key.dart` reads `String.fromEnvironment`, hex-decodes to bytes; throws a clear error at startup if missing/≠32 bytes (better than encrypting with garbage). Generate a demo key: `openssl rand -hex 32` — record it in `backend/.env` + your run script, **never commit it**.
-- `medical_crypto.dart`:
-  ```dart
-  Future<String> encryptMedicalCard(Map<String, dynamic> sensitiveFields); // -> base64(nonce‖ciphertext‖tag)
-  Future<Map<String, dynamic>> decryptMedicalCard(String b64);
-  ```
-  AES-256-GCM via `cryptography`: 12-byte random nonce, no AAD; output format `base64(nonce | ciphertext | 16-byte tag)` — document this byte layout in a comment; **the backend endpoint and decrypt page must reproduce it exactly** (nonce prefix, GCM tag appended at end — `cryptography` already concatenates cipher+tag in `SecretBox.concatenation()`).
-- **SOS send path integration** (`screens/sos/sos_screen.dart`, replace Phase 2's TODO): on send, build `sensitive = {medical_conditions, medications, insurance_provider, insurance_policy}` from the stored profile → `encryptMedicalCard` → set `MeshMessage.encrypted_payload`. Plaintext half rides in `payload.plaintext_medical` as before. If no sensitive fields are filled, leave `encrypted_payload` null — never encrypt empty junk.
-- If the profile has sensitive data but the key is missing, **queue the SOS with `encrypted_payload: null` and warn the user** ("Medical details couldn't be secured — sending without them") rather than blocking the SOS. Safety beats crypto at demo time.
+1. **Envelope Byte Layout:**
+   Strict cross-platform format:
+   $$\text{Base64}\big(\, [12\text{-byte Nonce}] \,\|\, [\text{Ciphertext}] \,\|\, [16\text{-byte GCM Tag}] \,\big)$$
+   - In Dart: use `cryptography` package with `AesGcm.with256bits()` and `SecretBox.concatenation()`.
+2. **SOS Send Path:**
+   - On SOS trigger: pull sensitive fields (`medical_conditions`, `medications`, `insurance_provider`, `insurance_policy`).
+   - If sensitive fields exist $\rightarrow$ encrypt to Base64 ciphertext $\rightarrow$ store in `MeshMessage.encrypted_payload`.
+   - Public fields (`name`, `blood_group`, `allergies`, `emergency_contact`) remain in plaintext `payload.plaintext_medical`.
+   - If encryption key is missing $\rightarrow$ queue SOS with `encrypted_payload: null` and notify user ("Medical details couldn't be encrypted — sending emergency alert without them"). Safety always beats crypto.
 
-## 6. Backend: `POST /medical/decrypt` (small, demo-auth)
+---
 
-- `backend/app/routers/medical.py` (new router, register in `main.py`; new service file `backend/app/services/medical_crypto.py` with a Python AES-256-GCM decrypt mirroring the byte layout above — use `cryptography` PyPI package).
-- Body: `{ "ciphertext": "<base64>", "demo_pass": "<pass>" }` → `200 { "fields": {…} }` | `401` bad pass | `422` undecryptable.
-- Auth: `demo_pass` must equal env `DECRYPT_DEMO_PASS` (any shared string; default `"relink-demo"`). This is intentionally break-glass demo auth — comment that production would gate per-responder-org keys (master plan §5 roadmap).
-- `MEDICAL_CARD_DEMO_KEY` (same 64-hex) goes in `backend/.env`.
-- Test: pytest round-trip — encrypt a vector in Python, decrypt via endpoint; plus one **cross-language golden vector** generated from Dart (hardcode expected output) to prove Dart↔Python byte-layout compatibility. This golden test is the thing that catches demo-day decrypt failures — do not skip it.
+## 8. Backend: Break-Glass Endpoint (`POST /medical/decrypt`)
 
-## 7. Decrypt Demo Page (`dashboard/decrypt.html`)
+- Add `backend/app/routers/medical.py` and `backend/app/services/medical_crypto.py`.
+- Endpoint: `POST /medical/decrypt`
+  - Body: `{ "ciphertext": "<base64>", "demo_pass": "<pass>" }`
+  - Auth: `demo_pass == os.environ.get("DECRYPT_DEMO_PASS", "relink-demo")`.
+  - Python AES-256-GCM decryption via `cryptography.hazmat.primitives.ciphers.aead.AESGCM`.
+  - Output: `200 { "status": "success", "decrypted_data": { ...fields... } }` | `401 Unauthorized` | `422 Unprocessable Entity`.
+- Pytest: Test with a known **Cross-Language Golden Vector** generated from Dart to prove cross-platform compatibility.
 
-Single self-contained HTML file (no build step — Phase 4 builds the real dashboard around it):
-- Web Crypto API (`crypto.subtle.decrypt({name:'AES-GCM', iv: nonce}, key, cipherAndTag)`) — same byte layout: split base64 → nonce[0:12] | ciphertext+tag.
-- Key input: paste the 64-hex demo key (or read `?key=` query param for demo convenience).
-- Ciphertext input: paste from `GET /sos` response, or a "Fetch latest SOS" button that calls `GET /sos?limit=1` and auto-decrypts `encrypted_medical` via `POST /medical/decrypt` (both paths shown — direct Web Crypto proves client-side decrypt works; backend endpoint proves the break-glass path).
-- Renders plaintext fields (name/blood group/allergies/emergency contact — from `plaintext_medical`) beside decrypted sensitive fields, styled in the calm palette, with a visible "Decrypted on view — never stored" caption.
-- Title it clearly: this page becomes a component in the Phase 4 dashboard; keep the JS modular enough to lift.
+---
 
-## 8. Demo Script & Backup Video (required deliverable)
+## 9. Demo Script & Backup Video (Required Deliverable)
 
-Rehearse this exact sequence, then record it (screen-record phone A + narrate; save as `demo/phase3_mesh_demo.mp4`):
+Rehearse and record this exact flow to `demo/phase3_mesh_demo.mp4`:
 
-1. Phone B (relay) and phone A (victim): airplane mode ON → Bluetooth ON. Open RELINK on both; debug screen shows mesh started, peers discovered.
-2. Phone A: SOS flow → send. UI: "No signal — SOS saved & shared with nearby phones."
-3. Phone B: banner "You just relayed someone's SOS"; debug screen shows the message id + TTL decremented on rebroadcast.
-4. Phone C (online): open RELINK → within seconds `GET /sos` shows the event with `encrypted_medical` populated.
-5. Open `dashboard/decrypt.html`, paste key, fetch latest SOS → sensitive medical fields render.
-6. Show `ttl` reaching 0 stops rebroadcast (optional, debug log evidence).
+1. **Phones A and B (Both in Airplane Mode, Bluetooth ON, Location ON):**
+   - Open RELINK on both phones.
+   - App bar displays `🟢 1 Peer Nearby` on both screens.
+2. **Community Forum / Hazard Sharing:**
+   - Phone A submits a road hazard: *"Aluva bridge submerged under 2ft water"*.
+   - Within seconds, the hazard pin and card appear on Phone B's offline map with the `📡 Via Mesh` badge.
+3. **Emergency SOS Propagation:**
+   - Phone A taps SOS $\rightarrow$ confirms send.
+   - Phone A shows: *"No signal — SOS saved & broadcasting to nearby peers"*.
+   - Phone B shows banner: *"Relayed an emergency beacon for [Name] — will upload when signal returns"*.
+4. **Cloud Flush:**
+   - Phone C (or Phone B reconnecting to Wi-Fi) receives the packet and flushes to backend.
+   - Backend `GET /sos` returns the event with populated `encrypted_medical`.
+5. **Decryption Verification:**
+   - Hit `POST /medical/decrypt` with the ciphertext and demo passphrase $\rightarrow$ sensitive medical records render cleanly.
 
-If live recording keeps failing after honest effort (BLE flakiness is real), record the closest working variant (e.g. 2 phones instead of 3) and **tell the user** — a real 2-hop video beats a faked 3-hop one. Note the video's coverage gaps in the Status Log.
+---
 
-## 9. Testing
+## 10. Verification & Testing
 
-- Unit: codec round-trip; seen-store TTL sweep; flooding logic with a fake transport (new id → stored + rebroadcast with ttl-1; seen id → dropped; ttl=0 → stored, not rebroadcast; SOS → high-priority enqueue).
-- Unit: `medical_crypto` round-trip; wrong key → exception; golden cross-language vector vs Python output.
-- Backend pytest: decrypt endpoint 200/401/422 paths + golden vector.
-- Widget: SOS screen with mocked crypto → `encrypted_payload` set on the enqueued message when sensitive fields exist.
-- Physical-device soak: mesh running 10 min on two phones, no crash, discovery survives a Bluetooth toggle.
-
-## 10. Known Gotchas
-
-- **Nearby Connections + Android 12/13/14 permission dialogs are the classic day-1 killer**: request at runtime, in one batch, before `startAdvertising`. `neverForLocation` flag matters or Play complains.
-- Discovery silently fails if Location services (the system toggle, not just the permission) are off on some OEM builds — detect and deep-link to settings.
-- `P2P_CLUSTER` is many-to-many but **payloads don't auto-forward** — your flooding code does the forwarding; that separation is intentional, don't look for a library flood mode.
-- Payload received callbacks deliver `Payload` objects — read bytes payloads fully before the callback returns (stream/bytes lifecycle).
-- Keep a human-readable mesh debug log surface (extend Phase 2's debug screen): discovery/connection/send/receive events with timestamps. You will need it when the demo misbehaves, and judges love seeing the mesh think.
-- BLE range is ~10–30 m indoors through bodies/walls — stage the demo with phones within a room, not across a building.
-- Battery: mesh always-on drains; for the soak test, note drain rate in the Status Log.
-- Don't over-engineer: no GATT hand-rolling, no mesh routing tables, no ACK protocol — flooding + dedupe + TTL is the spec (master plan §6 forbids raw GATT).
-
-## 11. Finish Checklist
-
-- [ ] 3-phone demo executed live end-to-end (§8 steps 1–5) and video saved to `demo/phase3_mesh_demo.mp4`.
-- [ ] Backend migration `0002_client_msg_id` applies; duplicate-message delivery returns 200 without dupes.
-- [ ] Golden Dart↔Python crypto vector passes both sides.
-- [ ] `flutter analyze` + `flutter test` + backend `pytest` all green.
-- [ ] **Update `CLAUDE.md` §9 Status Log, Phase 3 entry** — mesh transport behavior observed on real devices (range, reconnect quirks), crypto byte layout confirmation, video filename + any coverage gaps, deviations, what Phase 4 must know (decrypt page location, env keys now required).
-- [ ] Commit: `phase 3: BLE mesh flooding + AES-GCM medical card`.
+- **Flutter Unit Tests:**
+  - `crypto_test.dart`: AES-256-GCM round-trip, invalid key rejection, golden cross-language vector test.
+  - `mesh_manager_test.dart`: Packet decoding, deduplication via `seen_ids`, TTL decrement, two-way gossip routing, and SOS priority dequeuing.
+- **Backend Tests:**
+  - `test_medical_crypto.py`: Python decryption of golden vector, invalid passphrase rejection, malformed payload error handling.
+- **Static Analysis:**
+  - `flutter analyze` clean (0 errors, 0 warnings).

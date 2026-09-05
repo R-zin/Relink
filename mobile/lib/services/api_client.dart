@@ -182,6 +182,8 @@ class ApiClient {
           'lng': p['lng'],
           if (p['plaintext_medical'] != null)
             'plaintext_medical': p['plaintext_medical'],
+          if (p['sensitive_medical'] != null)
+            'sensitive_medical': p['sensitive_medical'],
           if (msg.encryptedPayload != null)
             'encrypted_medical': msg.encryptedPayload,
         },

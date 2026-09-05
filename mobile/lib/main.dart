@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'config.dart';
+import 'mesh/mesh_manager.dart';
 import 'screens/home_shell.dart';
 import 'services/api_client.dart';
 import 'services/location_service.dart';
@@ -24,6 +26,7 @@ class _RelinkAppState extends State<RelinkApp> {
   late final OutboxDao _outbox;
   late final ApiClient _apiClient;
   late final SyncService _syncService;
+  MeshManager? _meshManager;
 
   @override
   void initState() {
@@ -32,10 +35,24 @@ class _RelinkAppState extends State<RelinkApp> {
     _apiClient = ApiClient();
     _syncService = SyncService(outbox: _outbox, poster: _apiClient.postJson)
       ..start();
+    _initMesh();
+  }
+
+  Future<void> _initMesh() async {
+    final devId = await getDeviceId();
+    final mgr = MeshManager(
+      localDeviceId: devId,
+      outboxDao: _outbox,
+      syncService: _syncService,
+    );
+    await mgr.startMesh();
+    if (mounted) setState(() => _meshManager = mgr);
   }
 
   @override
   void dispose() {
+    _meshManager?.stopMesh();
+    _meshManager?.dispose();
     _syncService.dispose();
     super.dispose();
   }
@@ -47,6 +64,7 @@ class _RelinkAppState extends State<RelinkApp> {
         Provider<OutboxDao>.value(value: _outbox),
         Provider<ApiClient>.value(value: _apiClient),
         Provider<SyncService>.value(value: _syncService),
+        ChangeNotifierProvider<MeshManager?>.value(value: _meshManager),
         Provider<LocationService>(create: (_) => LocationService()),
         Provider<MedicalProfileStore>(create: (_) => MedicalProfileStore()),
       ],

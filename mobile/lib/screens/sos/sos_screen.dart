@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 
 import '../../config.dart';
+import '../../mesh/mesh_manager.dart';
 import '../../services/location_service.dart';
 import '../../services/medical_profile_store.dart';
 import '../../services/sync_service.dart';
@@ -72,6 +73,7 @@ class _SosScreenState extends State<SosScreen>
     final controller = SosController(
       outbox: context.read<OutboxDao>(),
       sync: context.read<SyncService>(),
+      meshManager: context.read<MeshManager?>(),
     );
 
     // No GPS fix — fall back to the demo region center so the SOS is still

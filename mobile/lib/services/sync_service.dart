@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 
+import 'package:flutter/foundation.dart';
+
 import '../storage/outbox_dao.dart';
 import 'api_client.dart';
 
@@ -74,14 +76,18 @@ class SyncService {
     try {
       final pending = await _outbox.pending();
       var allSent = true;
+      debugPrint('[SyncService] Starting flush of ${pending.length} pending messages');
       for (final msg in pending) {
         await _outbox.markSending(msg.id);
         final req = envelopeRequest(msg);
         try {
+          debugPrint('[SyncService] Posting msg ${msg.id} to ${req.path}');
           await _poster(req.path, req.body);
           await _outbox.markSent(msg.id);
+          debugPrint('[SyncService] Successfully sent msg ${msg.id}');
         } on ApiException catch (e) {
           allSent = false;
+          debugPrint('[SyncService] ApiException for msg ${msg.id}: $e (isNetworkError=${e.isNetworkError})');
           if (e.isNetworkError) {
             // Offline (or server unreachable): leave this and everything
             // after it for the next connectivity event.
@@ -94,8 +100,9 @@ class SyncService {
           if (await _outbox.retryCount(msg.id) >= maxRetries) {
             await _outbox.markSent(msg.id); // dead-letter: stop retrying
           }
-        } catch (_) {
+        } catch (e, st) {
           allSent = false;
+          debugPrint('[SyncService] Unexpected error sending ${msg.id}: $e\n$st');
           await _outbox.markFailed(msg.id);
           break;
         }

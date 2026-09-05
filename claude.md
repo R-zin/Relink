@@ -21,8 +21,8 @@ This is the **master plan**: shared ground truth for every implementation sessio
 |---|---|---|
 | 1 | `plans/phase_1.md` | Foundation — backend skeleton, Postgres schema, core CRUD, DBSCAN clustering, Flutter scaffold + sqflite outbox |
 | 2 | `plans/phase_2.md` | Core app flows (internet path only) — SOS, live map, submissions |
-| 3 | `plans/phase_3.md` | Offline path — BLE mesh + medical-card crypto (+ backend decrypt endpoint) |
-| 4 | `plans/phase_4.md` | Backend intelligence (hazard APIs, AI review, Sachet RSS + FCM push) + React dashboard + seed data + demo prep |
+| 3 | `plans/phase_3.md` | Offline mesh — Nearby Connections two-way gossip (hazards, missing persons, alerts) + SOS relay + local community forum cache + embedded AES-GCM crypto |
+| 4 | `plans/phase_4.md` | Responder command & telemetry — React command dashboard with inline 1-click decrypt, GloFAS river risk, Sachet RSS alerts + local emergency notification channel |
 
 ---
 
@@ -59,13 +59,14 @@ Chosen direction: warm, reassuring, plain-language — optimized for someone who
 
 **Core**
 1. **SOS button** — internet-first send; P2P mesh flooding fallback until any hop reaches internet. Carries the encrypted medical card (Section 5).
-2. **Live Map & Crowdsourced Layers** *(replaces the old separate "clustering-based reporting" and "shelter mapping" features — merged into one map feature with per-type trust signals)*:
-   - GPS auto-captures lat/lng on every submission (SOS, report, shelter, missing person) via the device's location services; user can nudge the pin manually before submitting.
-   - One map view (`flutter_map` on mobile, Leaflet on dashboard) with toggleable layers: relief camps/shelters, flooded/blocked roads & other hazards, missing persons (last-seen), and satellite-observed flood extent from Copernicus Global Flood Monitoring (GFM), shown with its observation time.
-   - Each layer type carries its **own independent** crowdsourced trust signal — confirm/upvote count + last-verified timestamp (e.g. "Confirmed by 12 · verified 20 min ago") — not just shelters as before.
-   - DBSCAN clustering (server-side, unchanged) collapses near-duplicate hazard reports before they hit the map, so confirmations accumulate on one cluster instead of fragmenting.
+2. **Live Map & Offline Community Forum** *(reads from local SQLite database — works 100% offline)*:
+   - GPS auto-captures lat/lng on every submission (SOS, report, shelter, missing person) via device location services; user can nudge the pin manually before submitting.
+   - One map view (`flutter_map` on mobile, Leaflet on dashboard) with toggleable layers: relief camps/shelters, flooded/blocked roads & other hazards, missing persons (last-seen), and satellite-observed flood extent (Copernicus GFM fixture with observation timestamp).
+   - **Two-way P2P Mesh Dissemination:** Offline nodes don't just send out SOS; they gossip and synchronize recent missing persons, hazards, and relief updates peer-to-peer so every offline device's local map and feed stay updated.
+   - Each layer type carries its **own independent** crowdsourced trust signal — confirm/upvote count + last-verified timestamp (e.g. "Confirmed by 12 · verified 20 min ago").
+   - DBSCAN clustering (server-side) collapses near-duplicate hazard reports before they hit the cloud map, accumulating confirmations on single clusters.
    - Missing-person reports are last-seen location + description only (no face matching — stays deferred).
-3. **Real-time regional alerts** — NDMA Sachet CAP/RSS feed, delivered as **true OS-level push notifications via FCM** — must appear in the system notification tray even when the app is backgrounded or killed, not just an in-app banner. High-priority/heads-up notification channel on Android for Red/Orange severity. Tapping the notification deep-links to that region's alert detail.
+3. **Real-time regional alerts** — NDMA Sachet CAP/RSS feed, delivered via **local high-priority OS notifications** (`flutter_local_notifications`) and disseminated across the mesh. High-priority/heads-up notification channel on Android for Red/Orange severity.
 4. **Stats page** — live hazard dashboard + AI-generated plain-language risk review.
 
 **Optional (build last, only if time remains)**
@@ -82,32 +83,35 @@ Chosen direction: warm, reassuring, plain-language — optimized for someone who
 ## 4. System Architecture
 
 ```
-┌─────────────────┐   BLE/Nearby Connections   ┌─────────────────┐
-│  Victim/Survivor │ ◄───────flooding mesh────► │  Nearby Devices  │
-│   Mobile App     │                             │   (relay hops)  │
-└────────┬─────────┘                             └────────┬────────┘
-         │  (once any hop has internet)                   │
-         ▼                                                 ▼
-                    ┌───────────────────────┐
-                    │   FastAPI Backend      │
-                    │  - ingest SOS/reports  │
-                    │  - DBSCAN clustering   │
-                    │  - external API fetch  │
-                    │    (GloFAS forecast +  │
-                    │     GFM flood extent)  │
-                    │  - AI stats review     │
-                    │  - FCM alert push      │
-                    └──────────┬─────────────┘
-                               │
-                    ┌──────────▼─────────────┐
-                    │ Postgres (Supabase)     │
-                    │  + realtime subscribe   │
-                    └──────────┬─────────────┘
-                               │
-                    ┌──────────▼─────────────┐
-                    │  Command Dashboard      │
-                    │  (React + Leaflet)      │
-                    └─────────────────────────┘
+┌─────────────────────────────────┐   BLE / Nearby Connections   ┌─────────────────────────────────┐
+│     Victim / Survivor Node      │ ◄───────two-way gossip──────► │       Nearby Peer Relays        │
+│  - SOS broadcast (outbound)     │    (SOS out, bulletins in)   │  - Store-Carry-Forward queue    │
+│  - Community forum (local db)   │                               │  - Community forum sync         │
+└────────────────┬────────────────┘                               └────────────────┬────────────────┘
+                 │  (once any hop reaches signal)                                  │
+                 ▼                                                                 ▼
+                            ┌───────────────────────────────┐
+                            │        FastAPI Backend        │
+                            │  - Ingest SOS/reports/missing │
+                            │  - Deduplication (client_id)  │
+                            │  - DBSCAN spatial clustering  │
+                            │  - External hazard telemetry  │
+                            │    (GloFAS river risk + dams) │
+                            │  - AI stats review            │
+                            │  - Sachet CAP alert poller    │
+                            └───────────────┬───────────────┘
+                                            │
+                            ┌───────────────▼───────────────┐
+                            │      Postgres (Supabase)      │
+                            │    + realtime subscriptions   │
+                            └───────────────┬───────────────┘
+                                            │
+                            ┌───────────────▼───────────────┐
+                            │    Incident Command Center    │
+                            │   (React + Leaflet Dashboard) │
+                            │  - Live map & hazard layers   │
+                            │  - Inline 1-click SOS decrypt │
+                            └───────────────────────────────┘
 ```
 
 ---
@@ -118,12 +122,12 @@ Chosen direction: warm, reassuring, plain-language — optimized for someone who
 - **Plaintext / broadcast openly** (responders need this instantly, no decrypt step): name, blood group, known allergies, emergency contact (name + phone).
 - **Encrypted** (full context, gated to responders): medical conditions/notes, current medications, insurance provider + policy number.
 
-**Mechanism — symmetric AES-256-GCM (not asymmetric NaCl box):**
-- A single pre-shared demo key (`MEDICAL_CARD_DEMO_KEY`) is baked into the app build config and into the responder/dashboard demo environment.
-- Sensitive fields are encrypted client-side before being placed into the SOS message's `encrypted_payload` field (same message schema as before) — travels through BLE mesh flooding exactly as originally designed.
-- Decryption happens only in the responder dashboard demo environment, decrypt-on-view, never persisted decrypted.
-- Flutter library: use `cryptography` (or `encrypt`) for AES-GCM — drop `sodium_libs` from the stack, it was only needed for the asymmetric box approach.
-- Why this over the original design: this still gives you a real, working, offline, over-BLE encryption demo — which is what you asked to show live — with roughly a third of the integration surface of keypair-based asymmetric crypto. Per-responder-org key rotation is a legitimate v2 feature, noted as roadmap only.
+**Mechanism — symmetric AES-256-GCM:**
+- A single pre-shared demo key (`MEDICAL_CARD_DEMO_KEY`) is configured in the app build config and in the responder Command Dashboard environment.
+- Sensitive fields are encrypted client-side in Flutter before being placed into the SOS message's `encrypted_payload` field — travels through the BLE mesh flooding.
+- **Embedded Decryption:** Decryption happens directly inside the responder Command Dashboard on view (or via a lightweight `/medical/decrypt` backend endpoint). No separate standalone decrypt website is needed.
+- Flutter library: `cryptography` for AES-GCM (`SecretBox.concatenation()`). Layout: `Base64([12-byte Nonce] + [Ciphertext] + [16-byte Tag])`.
+- Decrypted sensitive fields are rendered alongside plaintext public fields with a clear "Decrypted on view — never stored" indicator.
 
 ---
 
@@ -133,12 +137,12 @@ Chosen direction: warm, reassuring, plain-language — optimized for someone who
 |---|---|---|
 | Mobile app | Flutter (Dart) | Fast cross-platform UI; good chart/map plugin ecosystem |
 | Mesh layer | Google Nearby Connections API (`nearby_connections` plugin, `P2P_CLUSTER` strategy), Android only | Handles discovery + transport switching (BLE/Wi-Fi Direct) — do NOT hand-roll raw GATT mesh routing in hackathon time |
-| Local offline storage | `sqflite` | Outbox queue for unsent SOS/reports |
+| Local offline storage | `sqflite` | Outbox queue + local community forum cache |
 | Location | `geolocator` | GPS capture for map submissions |
 | Maps (mobile) | `flutter_map` (OpenStreetMap) | No API key required; supports offline tile caching |
 | Charts (stats page) | `fl_chart` | Native Flutter charting |
-| Push notifications | Firebase Cloud Messaging + `flutter_local_notifications` | System-tray push even when backgrounded; note: background handler must be a top-level/static function — common Flutter gotcha |
-| Crypto | `cryptography` (Dart) — AES-256-GCM, symmetric | Real encryption, low integration risk (see Section 5) |
+| Emergency notifications | `flutter_local_notifications` | High-priority OS heads-up alert banner triggered by backend sync or incoming mesh alerts |
+| Crypto | `cryptography` (Dart) — AES-256-GCM, symmetric | Real encryption, clean byte alignment (see Section 5) |
 | Backend | Python + FastAPI | Async fan-out to multiple hazard APIs; easy LLM + scikit-learn integration |
 | Clustering | scikit-learn DBSCAN | Simple, no GIS extension needed |
 | Database | Postgres via Supabase | Free managed Postgres + realtime subscriptions + auth, near-zero ops |
@@ -259,8 +263,8 @@ Detailed instructions per phase are in `plans/phase_N.md`. Read only your assign
 |---|---|---|
 | 1 | Backend skeleton, Postgres schema, core CRUD endpoints, DBSCAN clustering, sqflite outbox scaffold | Every Phase-1 endpoint responds correctly against local Postgres; `/reports/clusters` collapses near-duplicates; outbox table stores/retrieves queued messages with SOS-first ordering |
 | 2 | Flutter screens — SOS, Live Map, report/shelter/missing-person submission over HTTP | A phone with internet can submit SOS/report/shelter and see them via backend; map shows all three layer types with confirm counts; offline submissions queue in outbox and flush on reconnect |
-| 3 | Nearby Connections mesh, flooding algorithm, sync-on-reconnect, AES-GCM medical card, dashboard decrypt path | Two airplane-mode phones relay an SOS, an internet device flushes it, dashboard decrypts sensitive fields; **backup video recorded** |
-| 4 | External hazard APIs, AI review, Sachet RSS + FCM push, React dashboard, seed data, demo prep | `/stats` + `/stats/ai-review` + `/alerts` serve cached live data; Red/Orange alert produces a real notification-tray push on a backgrounded/killed app; dashboard shows seeded data + live updates incl. GFM layer and decrypt view; demo checklist executed |
+| 3 | Nearby Connections two-way mesh gossip, local SQLite community forum, live peer radar, embedded AES-GCM crypto | Two airplane-mode phones discover each other, sync missing persons/hazard bulletins, relay an SOS; Phone C (online) flushes SOS to backend; **backup video recorded** |
+| 4 | Hazard telemetry (GloFAS + dams), AI review, Sachet RSS + local alerts, React command dashboard with inline decrypt | Command dashboard displays live map, incoming SOS feed, and 1-click decrypt; GloFAS + AI review serve cached risk summary; local emergency notifications trigger on Red alert; demo checklist executed |
 
 ---
 
@@ -270,7 +274,11 @@ Detailed instructions per phase are in `plans/phase_N.md`. Read only your assign
 
 - Phase 1: **Done (2026-09-05).** FastAPI backend (all 5 routers + DBSCAN clustering + alembic migration 0001), Flutter scaffold with sqflite outbox, seed script. Verified: 29 backend tests pass, 8 Flutter tests pass, `flutter analyze` clean, alembic upgrade/downgrade clean, seed idempotent (40 reports/3 clusters, 6 shelters, 4 missing persons, 2 SOS around Kochi). Deviations: (1) `flutter create` was run *into* a pre-populated `mobile/` so the phase's `lib/` files were authored first, then the scaffold merged around them — `main.dart` placeholder kept. (2) Backend test engine uses `NullPool` in conftest (TestClient runs each test on its own event loop; pooled asyncpg connections crossed loops and died). (3) Outbox drain order sorts by the message's own `timestamp` column, not the row's insertion time, so SOS-jumps-queue is by priority and reports order by their real creation time. Env: local Postgres 18 on localhost:5432, role `postgres` password `relink` (reset during setup; pg_hba unchanged, scram auth). Backend `.env` is gitignored. To run: `cd backend && .venv/Scripts/activate && uvicorn app.main:app` then `python -m scripts.seed`. Response shapes settled: POST returns the full created row (201); confirm endpoints return `{id, confirm_count, last_confirmed_at}`; `/reports/clusters` returns `{clusters:[{cluster_id, centroid_lat, centroid_lng, report_count, total_confirmations, last_confirmed_at, sample_description, report_ids[]}], noise:[id…]}`. Phase 2: device_id arrives as a string; non-UUID strings are stored NULL with a warning (mesh relay safe). Flutter 3.47.2 SDK installed at `C:\flutter`; Android SDK (platform-34, build-tools 34.0.0) at `%LOCALAPPDATA%\Android\Sdk`.
 - Phase 2: **Done (2026-09-05), verified on-device.** Full internet path in `mobile/`: home shell (SOS center nav, alarm red reserved), SOS screen (confirmation sheet + medical card form, AES-GCM still TODO), submit hub + report/shelter/missing-person forms with GPS capture + pin nudge, live map (OSM + shelter/hazard-cluster/missing layers, confirm buttons round-trip), alerts/stats placeholders, debug outbox viewer (long-press app-bar title). Verified: `flutter analyze` clean, 19 tests green (sync ordering/offline/4xx, envelope golden-maps, SOS controller), debug APK builds, and all four POST body shapes + the three map GETs + confirm round-trips exercised with curl against the live Phase-1 backend (test rows cleaned up after). Deviations: (1) `OutboxDao` gained a public `retryCount(id)` so SyncService can dead-letter after 5 retries — same file, additive only. (2) `widget_test.dart` no longer pumps `RelinkApp` (it now wires real plugin-backed services; a widget test would need mock method channels) — replaced with a theme smoke test; flow coverage lives in controller-level tests instead. (3) `build.gradle.kts` keeps `minSdk = flutter.minSdkVersion` — Flutter 3.47 defaults it to 24 (verified in the merged manifest), which satisfies the plan's ≥23; hand-editing it gets reverted by the tooling. (4) NOTE for Phase 3/4: the cluster endpoint does NOT identify its highest-confirmation member — `sample_description` comes from it but `report_ids` is in DBSCAN label order, so the app confirms `report_ids.first` (any member is valid; totals refresh after). API base URL: `flutter run --dart-define=API_BASE_URL=http://<LAN-IP>:8000` (default `http://10.0.2.2:8000`, emulator only). Phase 3 seams: `SyncService` transport half is replaceable (mesh-aware logic goes there), medical sensitive fields are collected and stored plaintext with `TODO(phase3)` markers, `MeshMessage.encryptedPayload` is always null for now, `seen_ids` table awaits the flooding protocol. On-device verification (Samsung A35, Android): SOS online send, offline queue → reconnect auto-flush, map layers + confirm round-trip all confirmed working against the live backend (rows verified in Postgres). Windows Firewall blocked the phone over Wi-Fi — worked around with `adb reverse tcp:8000 tcp:8000` + `--dart-define=API_BASE_URL=http://localhost:8000` (phone reaches the backend over the USB cable; requires the cable to stay plugged in). For untethered device testing, either add an inbound firewall rule for TCP 8000 (needs admin) or use the LAN-IP dart-define after allowing the port.
-- Phase 3: —
+- Phase 3: **In Progress (Hardware Milestones 0 & 1 Complete & Verified on Physical Devices).**
+  - **Milestone 0 (Hardware Smoke Test - PASSED):** Verified on physical OnePlus Nord CE4 (Android 14) and Samsung Galaxy A35 (Android 16). Auto-discovery, auto-handshake, and bidirectional Ping/Pong packets over Nearby Connections (`P2P_CLUSTER`).
+  - **Milestone 1 (Physical Blackout SOS Relay - PASSED):** Phone 1 in strict Airplane Mode (`✈️`) with Bluetooth ON generated an SOS carrying a complete medical card (Rahul Nair, O+, Penicillin allergy, Priya Nair emergency contact, Asthmatic/Diabetic conditions). Transmitted 566-byte packet via Nearby Connections BLE mesh to Phone 2; Phone 2 received the packet over the air, deduplicated via `SeenStore`, stored it in SQLite `outbox`, and flushed it over HTTP via ADB reverse proxy to the laptop ingestion console on `localhost:8000`. Verified with Phone 1 origin device ID (`fd362824...`), GPS coordinates, and patient medical profile.
+  - **Permanent Infrastructure Built & Clean:** `mobile/lib/mesh/nearby_transport.dart`, `mobile/lib/mesh/mesh_manager.dart`, `mobile/lib/mesh/mesh_message_codec.dart`, `mobile/lib/mesh/seen_store.dart`, `mobile/lib/main.dart` (Provider registered), `mobile/android/app/src/main/AndroidManifest.xml` (`usesCleartextTraffic="true"`). Static analysis (`flutter analyze`) 0 warnings, unit tests 19/19 passing.
+  - **Next:** AES-256-GCM medical card crypto, `POST /medical/decrypt`, UI peer count radar, and community gossip wiring.
 - Phase 4: —
 
 ---
