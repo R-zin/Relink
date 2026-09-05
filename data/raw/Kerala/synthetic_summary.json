@@ -1,0 +1,34 @@
+{
+  "dem": {
+    "path": "C:\\Users\\steve\\Downloads\\Relink\\Ml\\landslide-engine\\data\\raw\\Kerala\\dem\\dem_raw.tif",
+    "native_res": "90 m",
+    "native_crs": "EPSG:4326",
+    "source": "SYNTHETIC (stand-in for NASA SRTM)"
+  },
+  "ndvi": {
+    "red": "C:\\Users\\steve\\Downloads\\Relink\\Ml\\landslide-engine\\data\\raw\\Kerala\\sentinel\\b04_red.tif",
+    "nir": "C:\\Users\\steve\\Downloads\\Relink\\Ml\\landslide-engine\\data\\raw\\Kerala\\sentinel\\b08_nir.tif",
+    "native_res": "60 m",
+    "native_crs": "EPSG:32643",
+    "source": "SYNTHETIC (stand-in for Sentinel-2 B4/B8 median composite)"
+  },
+  "landcover": {
+    "path": "C:\\Users\\steve\\Downloads\\Relink\\Ml\\landslide-engine\\data\\raw\\Kerala\\landcover\\landcover_raw.tif",
+    "native_res": "100 m",
+    "native_crs": "EPSG:4326",
+    "source": "SYNTHETIC (stand-in for ESA WorldCover)"
+  },
+  "rainfall": {
+    "dir": "C:\\Users\\steve\\Downloads\\Relink\\Ml\\landslide-engine\\data\\raw\\Kerala\\rainfall",
+    "days": 14,
+    "native_res": "0.25 deg (~25 km)",
+    "native_crs": "EPSG:4326",
+    "source": "SYNTHETIC (stand-in for IMD 0.25 deg daily gridded rainfall)",
+    "note": "native ~25 km; resampling to 30 m grid interpolates, does NOT create 30 m accuracy"
+  },
+  "landslides": {
+    "path": "C:\\Users\\steve\\Downloads\\Relink\\Ml\\landslide-engine\\data\\raw\\Kerala\\landslides\\inventory.geojson",
+    "count_positive": 98,
+    "source": "SYNTHETIC (stand-in for GSI landslide inventory)"
+  }
+}
