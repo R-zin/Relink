@@ -88,7 +88,7 @@ class _StatsScreenState extends State<StatsScreen> {
                     margin: const EdgeInsets.only(bottom: 14),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.04),
+                      color: const Color(0x0A000000),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.black12),
                     ),
