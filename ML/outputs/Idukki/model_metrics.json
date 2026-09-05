@@ -1,0 +1,163 @@
+{
+  "region": "Idukki",
+  "features": [
+    "elev",
+    "slope",
+    "aspect_sin",
+    "aspect_cos",
+    "curvature",
+    "ndvi",
+    "rain_1d",
+    "rain_3d",
+    "rain_7d",
+    "lulc"
+  ],
+  "best_model": "logistic_regression",
+  "selection": "max spatial-validation PR-AUC, tie-break ROC-AUC (plan.md 6.3)",
+  "models": {
+    "logistic_regression": {
+      "val": {
+        "accuracy": 0.7882107459572248,
+        "precision": 0.6534954407294833,
+        "recall": 0.4240631163708087,
+        "f1": 0.5143540669856459,
+        "threshold": 0.5,
+        "roc_auc": 0.792274119770028,
+        "pr_auc": 0.6111528484157218,
+        "confusion_matrix": [
+          [
+            1296,
+            114
+          ],
+          [
+            292,
+            215
+          ]
+        ]
+      },
+      "test": {
+        "accuracy": 0.7926121372031663,
+        "precision": 0.6839622641509434,
+        "recall": 0.3078556263269639,
+        "f1": 0.424597364568082,
+        "threshold": 0.5,
+        "roc_auc": 0.8057444118418856,
+        "pr_auc": 0.5917636834246489,
+        "confusion_matrix": [
+          [
+            1357,
+            67
+          ],
+          [
+            326,
+            145
+          ]
+        ]
+      }
+    },
+    "random_forest": {
+      "val": {
+        "accuracy": 0.7652582159624414,
+        "precision": 0.7567567567567568,
+        "recall": 0.16568047337278108,
+        "f1": 0.27184466019417475,
+        "threshold": 0.5,
+        "roc_auc": 0.7286010043784185,
+        "pr_auc": 0.5353215898466164,
+        "confusion_matrix": [
+          [
+            1383,
+            27
+          ],
+          [
+            423,
+            84
+          ]
+        ]
+      },
+      "test": {
+        "accuracy": 0.7604221635883905,
+        "precision": 0.6440677966101694,
+        "recall": 0.08067940552016985,
+        "f1": 0.14339622641509434,
+        "threshold": 0.5,
+        "roc_auc": 0.7274311767933396,
+        "pr_auc": 0.46742369055105404,
+        "confusion_matrix": [
+          [
+            1403,
+            21
+          ],
+          [
+            433,
+            38
+          ]
+        ]
+      },
+      "feature_importance": {
+        "elev": 0.1718,
+        "slope": 0.1826,
+        "aspect_sin": 0.1066,
+        "aspect_cos": 0.094,
+        "curvature": 0.0011,
+        "ndvi": 0.0808,
+        "rain_1d": 0.1088,
+        "rain_3d": 0.1365,
+        "rain_7d": 0.116,
+        "lulc": 0.0018
+      }
+    },
+    "xgboost": {
+      "val": {
+        "accuracy": 0.7636932707355243,
+        "precision": 0.75,
+        "recall": 0.15976331360946747,
+        "f1": 0.2634146341463415,
+        "threshold": 0.5,
+        "roc_auc": 0.7436345069732958,
+        "pr_auc": 0.5485051726572637,
+        "confusion_matrix": [
+          [
+            1383,
+            27
+          ],
+          [
+            426,
+            81
+          ]
+        ]
+      },
+      "test": {
+        "accuracy": 0.7688654353562006,
+        "precision": 0.7391304347826086,
+        "recall": 0.10828025477707007,
+        "f1": 0.18888888888888888,
+        "threshold": 0.5,
+        "roc_auc": 0.7419368305541638,
+        "pr_auc": 0.4791979098508464,
+        "confusion_matrix": [
+          [
+            1406,
+            18
+          ],
+          [
+            420,
+            51
+          ]
+        ]
+      },
+      "feature_importance": {
+        "elev": 0.1522,
+        "slope": 0.1912,
+        "aspect_sin": 0.0963,
+        "aspect_cos": 0.1059,
+        "curvature": 0.0282,
+        "ndvi": 0.0829,
+        "rain_1d": 0.0917,
+        "rain_3d": 0.1267,
+        "rain_7d": 0.0904,
+        "lulc": 0.0345
+      }
+    }
+  }
+}

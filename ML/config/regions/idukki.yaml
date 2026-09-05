@@ -1,0 +1,11 @@
+# Region-switch proof config (plan.md 2.1 / DoD 7): same pipeline, config only.
+region:
+  name: Idukki
+  boundary_path: data/regions/idukki/boundary.geojson
+  crs: EPSG:32643
+  target_resolution_m: 30
+  block_size_km: 5
+grid:
+  snap: align-to-boundary
+  buffer_m: 500
+outputs_dir: outputs/Idukki

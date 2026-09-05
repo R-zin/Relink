@@ -22,7 +22,7 @@ export default function App() {
 
       <main className="flex min-h-0 flex-1">
         {/* LEFT — act */}
-        <aside className="flex w-80 shrink-0 flex-col border-r border-zinc-800 bg-zinc-950">
+        <aside className="flex w-80 shrink-0 flex-col overflow-y-auto border-r border-zinc-800 bg-zinc-950">
           <SosFeed sos={d.sos} />
           <MissingPanel missing={d.missing} />
         </aside>

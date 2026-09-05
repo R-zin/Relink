@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import L from 'leaflet';
 import { CircleMarker, MapContainer, Polygon, Marker, TileLayer, Tooltip, WMSTileLayer } from 'react-leaflet';
+import { api } from '../lib/api';
 import { fmt } from '../lib/format';
 
 const CENTER = [10.02, 76.32]; // Kochi, Kerala (config.GLOFAS_LAT/LNG)
@@ -26,6 +27,14 @@ export function MapCanvas({ sos, shelters, clusters, missing, gfm }) {
   // still carry the GeoJSON fixture shape — tolerate both.
   const gfmIsWms = gfm?.mode === 'wms' && gfm?.wms_url && gfm?.layer;
   const floodPolys = gfmIsWms ? [] : extractPolygons(gfm);
+
+  const [mlPolys, setMlPolys] = useState([]);
+  useEffect(() => {
+    api
+      .getMlRiskRegions('idukki')
+      .then((data) => setMlPolys(extractPolygons(data)))
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="relative flex-1">
@@ -130,6 +139,28 @@ export function MapCanvas({ sos, shelters, clusters, missing, gfm }) {
               positions={poly}
               pathOptions={{ color: '#d4d4d8', weight: 1, dashArray: '4 4', fillColor: '#71717a', fillOpacity: 0.22 }}
             />
+          ))}
+
+        {/* Modeled ML flood & landslide risk polygons */}
+        {on.flood &&
+          mlPolys.map((poly, i) => (
+            <Polygon
+              key={`ml-risk-${i}`}
+              positions={poly}
+              pathOptions={{
+                color: '#d97706',
+                weight: 1.5,
+                fillColor: '#b45309',
+                fillOpacity: 0.35,
+              }}
+            >
+              <Tooltip>
+                <div className="text-xs">
+                  <strong className="text-amber-400">Modeled High Susceptibility Area</strong>
+                  <div>Flood & landslide susceptibility prediction</div>
+                </div>
+              </Tooltip>
+            </Polygon>
           ))}
       </MapContainer>
 

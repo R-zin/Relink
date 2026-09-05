@@ -1,0 +1,41 @@
+{
+  "region": "Kerala",
+  "datasets": {
+    "dem": {
+      "path": "C:\\Users\\steve\\Downloads\\Relink\\Ml\\landslide-engine\\data\\raw\\Kerala\\dem\\dem_raw.tif",
+      "source": "AWS elevation-tiles (Terrarium, SRTM-derived)",
+      "native_res": "~30 m (z10)",
+      "native_crs": "EPSG:4326",
+      "tiles": 126,
+      "recorded": "2026-09-05T16:32:45.610013+00:00"
+    },
+    "ndvi": {
+      "status": "fallback",
+      "note": "Sentinel-2 B4/B8 requires Copernicus Data Space / SentinelHub credentials. Configure credentials and implement a low-cloud median composite, or export a Kerala NDVI composite from Google Earth Engine to data/raw/<Region>/sentinel/b04_red.tif and b08_nir.tif.",
+      "recorded": "2026-09-05T16:32:45.648372+00:00"
+    },
+    "landcover": {
+      "status": "ok",
+      "path": "C:\\Users\\steve\\Downloads\\Relink\\Ml\\landslide-engine\\data\\raw\\Kerala\\landcover\\landcover_raw.tif",
+      "source": "ESA WorldCover 2021 v200",
+      "native_res": "10 m",
+      "native_crs": "EPSG:4326",
+      "tiles": 5,
+      "note": "categorical",
+      "recorded": "2026-09-05T16:32:45.632028+00:00"
+    },
+    "rainfall": {
+      "source": "IMD gridded 0.25 deg (synthetic stand-in)",
+      "native_res": "~25 km",
+      "note": "resampled to 30 m grid; accuracy remains ~25 km",
+      "recorded": "2026-09-05T18:47:49.232858+00:00"
+    },
+    "landslides": {
+      "source": "GSI inventory (synthetic stand-in for prototype)",
+      "count_positive": 4021,
+      "date_range": "2018-08 (synthetic)",
+      "note": "filtered to region boundary",
+      "recorded": "2026-09-05T18:47:49.219398+00:00"
+    }
+  }
+}

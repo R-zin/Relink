@@ -5,11 +5,16 @@ Phase 1; the rest are pass-throughs so later phases don't touch config
 plumbing (see plans/phase_1.md §4).
 """
 
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    # Path to ML model outputs directory
+    ML_OUTPUTS_DIR: str | None = None
 
     # Required: e.g. postgresql+asyncpg://postgres:postgres@localhost:5432/relink
     DATABASE_URL: str
@@ -56,6 +61,17 @@ class Settings(BaseSettings):
             return hostpart.split("/", 1)[0]
         except IndexError:
             return "(unparseable DATABASE_URL)"
+
+    def ml_outputs_path(self) -> Path:
+        """Resolve path to ML outputs directory."""
+        if self.ML_OUTPUTS_DIR:
+            return Path(self.ML_OUTPUTS_DIR)
+        # Default: repo_root / ML / outputs
+        root_outputs = Path(__file__).resolve().parents[2] / "ML" / "outputs"
+        if root_outputs.exists():
+            return root_outputs
+        # Fallback to current working directory
+        return Path("ML/outputs").resolve()
 
 
 def get_settings() -> Settings:

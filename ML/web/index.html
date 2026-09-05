@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Landslide Susceptibility &mdash; Kerala</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="map"></div>
+  <div id="panel">
+    <h2>Landslide Susceptibility</h2>
+    <p class="disclaimer">
+      Susceptibility indicates where landslides are more likely; it is
+      <strong>not</strong> a detection of an active event. Map language uses
+      &ldquo;potential landslide-prone region&rdquo;.
+    </p>
+    <div id="layer-controls"></div>
+    <div id="legend"></div>
+    <p class="note">
+      Rainfall note: native IMD rainfall resolution is ~0.25&deg; (~25 km);
+      the 30 m grid interpolates the coarse field, it does not create 30 m
+      accuracy.
+    </p>
+    <div id="info">Click a risk polygon, a historical landslide, or the map.</div>
+  </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="map.js"></script>
+</body>
+</html>

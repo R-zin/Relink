@@ -1,0 +1,40 @@
+{
+  "region": "Idukki",
+  "datasets": {
+    "dem": {
+      "path": "C:\\Users\\steve\\Downloads\\Relink\\Ml\\landslide-engine\\data\\raw\\dem\\dem_raw.tif",
+      "native_res": "90 m",
+      "native_crs": "EPSG:4326",
+      "source": "SYNTHETIC (stand-in for NASA SRTM)",
+      "recorded": "2026-09-05T11:44:10.554598+00:00"
+    },
+    "ndvi": {
+      "red": "C:\\Users\\steve\\Downloads\\Relink\\Ml\\landslide-engine\\data\\raw\\sentinel\\b04_red.tif",
+      "nir": "C:\\Users\\steve\\Downloads\\Relink\\Ml\\landslide-engine\\data\\raw\\sentinel\\b08_nir.tif",
+      "native_res": "60 m",
+      "native_crs": "EPSG:32643",
+      "source": "SYNTHETIC (stand-in for Sentinel-2 B4/B8 median composite)",
+      "recorded": "2026-09-05T11:44:10.562281+00:00"
+    },
+    "landcover": {
+      "path": "C:\\Users\\steve\\Downloads\\Relink\\Ml\\landslide-engine\\data\\raw\\landcover\\landcover_raw.tif",
+      "native_res": "100 m",
+      "native_crs": "EPSG:4326",
+      "source": "SYNTHETIC (stand-in for ESA WorldCover)",
+      "recorded": "2026-09-05T11:44:10.570630+00:00"
+    },
+    "rainfall": {
+      "source": "IMD gridded 0.25 deg (synthetic stand-in)",
+      "native_res": "~25 km",
+      "note": "resampled to 30 m grid; accuracy remains ~25 km",
+      "recorded": "2026-09-05T11:44:56.192702+00:00"
+    },
+    "landslides": {
+      "source": "GSI inventory (synthetic stand-in for prototype)",
+      "count_positive": 250,
+      "date_range": "2018-08 (synthetic)",
+      "note": "filtered to region boundary",
+      "recorded": "2026-09-05T11:44:56.180899+00:00"
+    }
+  }
+}

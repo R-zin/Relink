@@ -40,11 +40,20 @@ body {
   }
 }
 
-.scroll-hide::-webkit-scrollbar {
-  display: none;
+/* Subtle monochrome scrollbars */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
 }
-.scroll-hide {
-  scrollbar-width: none;
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
 }
 
 /* ---- Monochrome map treatment ---- */

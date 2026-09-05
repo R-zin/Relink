@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_map/flutter_map.dart' hide MapController;
 import 'package:flutter_map/flutter_map.dart' as fmap show MapController;
 import 'package:latlong2/latlong.dart';
@@ -9,6 +11,7 @@ import '../../models/cluster.dart';
 import '../../models/mesh_message.dart';
 import '../../models/missing_person.dart';
 import '../../models/report.dart';
+import '../../models/risk_zone.dart';
 import '../../models/shelter.dart';
 import '../../services/api_client.dart';
 import '../../services/location_service.dart';
@@ -39,6 +42,7 @@ class MapController extends ChangeNotifier {
   bool showMissing = true;
   bool showFlood = true;
 
+  List<RiskPolygon> riskPolygons = [];
   List<ReportCluster> clusters = [];
   List<Report> noiseReports = [];
   List<Shelter> shelters = [];
@@ -114,6 +118,24 @@ class MapController extends ChangeNotifier {
       gfmWms = stats.gfm;
     } catch (_) {
       gfmWms = const {};
+    }
+    // ML Flood & Landslide susceptibility polygons.
+    // Tries live API (via ngrok/tunnel/backend) first; falls back to bundled asset if offline.
+    if (showFlood) {
+      try {
+        final rawJson = await _api.getRiskRegionsRaw(region: 'kerala');
+        riskPolygons = await compute(parseRiskPolygons, rawJson);
+      } catch (_) {
+        if (riskPolygons.isEmpty) {
+          try {
+            final bundled = await rootBundle
+                .loadString('assets/data/default_risk_regions.geojson');
+            riskPolygons = await compute(parseRiskPolygons, bundled);
+          } catch (_) {
+            // Keep existing or empty
+          }
+        }
+      }
     }
     try {
       if (showHazards) {
@@ -206,6 +228,15 @@ class _MapScreenState extends State<MapScreen> {
                 options: MapOptions(
                   initialCenter: c.center,
                   initialZoom: 12,
+                  onTap: (tapPosition, point) {
+                    if (!c.showFlood || c.riskPolygons.isEmpty) return;
+                    for (final poly in c.riskPolygons) {
+                      if (poly.contains(point)) {
+                        _showRiskZoneSheet(context, poly);
+                        break;
+                      }
+                    }
+                  },
                 ),
                 children: [
                   TileLayer(
@@ -217,6 +248,20 @@ class _MapScreenState extends State<MapScreen> {
                   // Live Copernicus GFM flood-extent overlay (EODC GeoServer
                   // WMS): transparent PNG tiles on top of the OSM basemap.
                   if (c.showFlood) ..._gfmOverlay(c),
+                  // ML flood & landslide susceptibility overlay
+                  if (c.showFlood && c.riskPolygons.isNotEmpty)
+                    PolygonLayer(
+                      polygons: [
+                        for (final p in c.riskPolygons)
+                          Polygon(
+                            points: p.points,
+                            holePointsList: p.holePointsList,
+                            color: p.themeColor.withValues(alpha: 0.35),
+                            borderColor: p.themeColor,
+                            borderStrokeWidth: 1.5,
+                          ),
+                      ],
+                    ),
                   MarkerLayer(markers: _markers(context, c)),
                 ],
               ),
@@ -571,6 +616,19 @@ class _MapScreenState extends State<MapScreen> {
       ),
     );
   }
+
+  void _showRiskZoneSheet(BuildContext context, RiskPolygon poly) {
+    showModalBottomSheet(
+      context: context,
+      builder: (sheetContext) => _Sheet(
+        title: '${poly.riskName} Susceptibility Zone',
+        body: 'Model-estimated flood & landslide vulnerability.\n'
+            'Mean Susceptibility: ${poly.formattedProbability} · Coverage Area: ${poly.formattedArea}',
+        trustLine:
+            '⚠️ Predictive model based on SRTM DEM, slope & IMD precipitation · Not an active real-time detection.',
+      ),
+    );
+  }
 }
 
 class _LayerToggles extends StatelessWidget {
@@ -580,34 +638,75 @@ class _LayerToggles extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _toggleChip('Shelters', RelinkColors.pinShelter,
-                controller.showShelters, () => controller.toggle('shelters')),
-            _toggleChip('Hazards', RelinkColors.pinHazard,
-                controller.showHazards, () => controller.toggle('hazards')),
-            _toggleChip('Missing', RelinkColors.pinMissing,
-                controller.showMissing, () => controller.toggle('missing')),
-            _toggleChip('Flood extent', RelinkColors.pinHazard,
-                controller.showFlood, () => controller.toggle('flood')),
-          ],
-        ),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.black12, width: 1.0),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1A000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _row('Shelters', RelinkColors.pinShelter, controller.showShelters,
+              () => controller.toggle('shelters')),
+          const SizedBox(height: 5),
+          _row('Hazards', RelinkColors.pinHazard, controller.showHazards,
+              () => controller.toggle('hazards')),
+          const SizedBox(height: 5),
+          _row('Missing', RelinkColors.pinMissing, controller.showMissing,
+              () => controller.toggle('missing')),
+          const SizedBox(height: 5),
+          _row('Flood Risk', const Color(0xFF7B0177), controller.showFlood,
+              () => controller.toggle('flood')),
+        ],
       ),
     );
   }
 
-  Widget _toggleChip(
-      String label, Color color, bool selected, VoidCallback onTap) {
-    return FilterChip(
-      avatar: CircleAvatar(backgroundColor: color, radius: 6),
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => onTap(),
+  Widget _row(String label, Color color, bool active, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: active ? color : Colors.black26,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                color: active ? RelinkColors.text : Colors.black45,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Icon(
+              active ? Icons.check : Icons.close,
+              size: 13.5,
+              color: active ? color : Colors.black26,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

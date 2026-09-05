@@ -64,7 +64,9 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
   Future<void> _refresh() async {
     final f = _load();
-    setState(() => _future = f);
+    setState(() {
+      _future = f;
+    });
     await f;
   }
 
@@ -92,8 +94,8 @@ class _AlertsScreenState extends State<AlertsScreen> {
             if (alerts.isEmpty) {
               return _MessagePane(
                 icon: Icons.notifications_none,
-                title: 'No active alerts for your region.',
-                body: "When authorities issue a warning, you'll get a notification here — even if the app is closed.",
+                title: 'No active alerts across India.',
+                body: "When authorities issue disaster warnings via NDMA Sachet, they will appear here.",
                 onRetry: _refresh,
               );
             }

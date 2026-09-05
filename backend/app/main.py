@@ -11,7 +11,17 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.jobs import scheduler as jobs
-from app.routers import alerts, health, medical, missing_persons, reports, shelters, sos, stats
+from app.routers import (
+    alerts,
+    health,
+    medical,
+    missing_persons,
+    ml_risk,
+    reports,
+    shelters,
+    sos,
+    stats,
+)
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("relink")
@@ -46,5 +56,6 @@ for r in (
     medical.router,
     stats.router,
     alerts.router,
+    ml_risk.router,
 ):
     app.include_router(r)

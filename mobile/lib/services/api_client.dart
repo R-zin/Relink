@@ -198,6 +198,46 @@ class ApiClient {
     }) as Map<String, dynamic>;
     return AiReview.fromJson(data);
   }
+
+  // --- ML Susceptibility Endpoints ---
+
+  Future<String> getRiskRegionsRaw({String region = 'kerala', String? bbox}) async {
+    final uri = Uri.parse('$baseUrl/api/ml/risk-regions').replace(queryParameters: {
+      'region': region,
+      if (bbox != null) 'bbox': bbox,
+    });
+    final http.Response res;
+    try {
+      res = await _http.get(
+        uri,
+        headers: const {'ngrok-skip-browser-warning': 'true'},
+      ).timeout(_timeout);
+    } on TimeoutException {
+      throw ApiException('request timed out');
+    } on SocketException catch (e) {
+      throw ApiException('no connection: ${e.message}');
+    } on http.ClientException catch (e) {
+      throw ApiException('connection failed: ${e.message}');
+    }
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return res.body;
+    }
+    throw ApiException('GET /api/ml/risk-regions failed (${res.statusCode})',
+        statusCode: res.statusCode);
+  }
+
+  Future<Map<String, dynamic>> getPointRisk({
+    required double lat,
+    required double lng,
+    String region = 'kerala',
+  }) async {
+    final data = await _get('/api/ml/point-risk', {
+      'lat': '$lat',
+      'lng': '$lng',
+      'region': region,
+    }) as Map<String, dynamic>;
+    return data;
+  }
 }
 
 /// Maps a mesh envelope to the Phase 1 endpoint + request body for its type.
