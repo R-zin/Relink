@@ -59,16 +59,17 @@ def _sync_url(url: str) -> str:
 
 @pytest.fixture(scope="session", autouse=True)
 def migrated_db():
-    admin_url = _sync_url(_test_url).rsplit("/", 1)[0] + "/postgres"
     db_name = _test_url.rsplit("/", 1)[1].split("?")[0]
-    conn = psycopg2.connect(admin_url)
-    conn.autocommit = True
-    with conn.cursor() as cur:
-        cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (db_name,))
-        if cur.fetchone():
-            cur.execute(f'DROP DATABASE "{db_name}" WITH (FORCE)')
-        cur.execute(f'CREATE DATABASE "{db_name}"')
-    conn.close()
+    if db_name != "postgres" and "supabase" not in _test_url:
+        admin_url = _sync_url(_test_url).rsplit("/", 1)[0] + "/postgres"
+        conn = psycopg2.connect(admin_url)
+        conn.autocommit = True
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (db_name,))
+            if cur.fetchone():
+                cur.execute(f'DROP DATABASE "{db_name}" WITH (FORCE)')
+            cur.execute(f'CREATE DATABASE "{db_name}"')
+        conn.close()
 
     env = {**os.environ, "DATABASE_URL": _test_url}
     subprocess.run(
@@ -80,11 +81,12 @@ def migrated_db():
     )
     yield
 
-    conn = psycopg2.connect(admin_url)
-    conn.autocommit = True
-    with conn.cursor() as cur:
-        cur.execute(f'DROP DATABASE IF EXISTS "{db_name}" WITH (FORCE)')
-    conn.close()
+    if db_name != "postgres" and "supabase" not in _test_url:
+        conn = psycopg2.connect(admin_url)
+        conn.autocommit = True
+        with conn.cursor() as cur:
+            cur.execute(f'DROP DATABASE IF EXISTS "{db_name}" WITH (FORCE)')
+        conn.close()
 
 
 @pytest.fixture(autouse=True)

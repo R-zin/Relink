@@ -178,7 +178,7 @@ class ApiClient {
 
   // --- Phase 4: hazard stats / AI review / official alerts ---
 
-  Future<List<Alert>> listAlerts({String state = 'kerala'}) async {
+  Future<List<Alert>> listAlerts({String state = 'all'}) async {
     final data = await _get('/alerts', {'state': state}) as List;
     return data
         .map((e) => Alert.fromJson(e as Map<String, dynamic>))

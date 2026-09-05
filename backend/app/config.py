@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     OPEN_METEO_FLOOD_URL: str = "https://flood-api.open-meteo.com"
     OPEN_METEO_MARINE_URL: str = "https://marine-api.open-meteo.com"
     NASA_EONET_URL: str = "https://eonet.gsfc.nasa.gov/api/v3"
-    SACHET_RSS_URL: str | None = None
+    SACHET_RSS_URL: str = "https://sachet.ndma.gov.in/cap_public_website/rss/rss_india.xml"
     # Copernicus Global Flood Monitoring (GFM) live WMS — EODC GeoServer.
     # Serves the current observed flood-extent composite as PNG tiles overlaid
     # on the OSM basemap (no GeoJSON/COG download). No auth required.
@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     GLOFAS_LNG: float = 76.32
     STATS_TTL_MINUTES: int = 15
     AI_REVIEW_TTL_MINUTES: int = 20
-    ALERTS_STATE: str = "kerala"
+    ALERTS_STATE: str = "all"
 
     def masked_db_host(self) -> str:
         """Host:port of the DB for startup logging, credentials masked."""

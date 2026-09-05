@@ -12,22 +12,36 @@ router = APIRouter(prefix="/alerts", tags=["alerts"])
 
 @router.get("", response_model=list[AlertOut])
 async def list_alerts(
-    state: str = Query(default="kerala"),
+    state: str | None = Query(default=None),
     include_expired: bool = Query(default=False),
     limit: int = Query(default=50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ):
+    from sqlalchemy import func, or_
+    from app.config import get_settings
+
+    s = get_settings()
     stmt = (
         select(AlertCache)
-        .where(AlertCache.state == state.lower())
         .order_by(AlertCache.issued_at.desc().nulls_last(), AlertCache.created_at.desc())
         .limit(limit)
     )
+
+    # When state is specified (and not an 'all' wildcard), filter unless backend is in all-India mode serving legacy 'kerala'
+    if state and state.lower() not in ("all", "india", "all_india", "*"):
+        if s.ALERTS_STATE.lower() != "all" or state.lower() != "kerala":
+            stmt = stmt.where(
+                or_(
+                    AlertCache.state == state.lower(),
+                    AlertCache.area_desc.ilike(f"%{state}%"),
+                    AlertCache.is_test == 1,
+                )
+            )
+
     if not include_expired:
         # Active = no expiry recorded, or expiry still in the future.
-        from sqlalchemy import or_, func
-
         stmt = stmt.where(or_(AlertCache.expires.is_(None), AlertCache.expires > func.now()))
+
     result = await db.execute(stmt)
     return result.scalars().all()
 

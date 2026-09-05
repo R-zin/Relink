@@ -15,7 +15,7 @@ class AlertPoller {
   AlertPoller({
     required ApiClient api,
     required NotificationService notifications,
-    this.state = 'kerala',
+    this.state = 'all',
     this.interval = const Duration(minutes: 2),
   })  : _api = api,
         _notifications = notifications;

@@ -6,6 +6,7 @@ into `alerts_cache` (idempotent on the CAP identifier). A demo "test alert"
 path synthesises a Red flood warning for judge presentations.
 """
 
+import asyncio
 import logging
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
@@ -136,24 +137,26 @@ async def poll_sachet(db: AsyncSession) -> int:
         return 0
     state = s.ALERTS_STATE
 
-    async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as client:
+    async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True, verify=False) as client:
         rss = await client.get(s.SACHET_RSS_URL)
         rss.raise_for_status()
         items = parse_rss_items(rss.text)
 
-        count = 0
-        for item in items:
+        async def _fetch_and_parse(item: dict) -> dict | None:
             try:
                 cap = await client.get(item["link"])
                 cap.raise_for_status()
-                row = parse_cap_xml(cap.text, state=state)
+                return parse_cap_xml(cap.text, state=state)
             except Exception as exc:  # noqa: BLE001 — one bad item must not kill the poll
-                log.warning("failed to fetch/parse CAP %s: %s", item["guid"], exc)
-                continue
-            if row is None:
-                continue
-            await _upsert(db, row)
-            count += 1
+                log.warning("failed to fetch/parse CAP %s: %s", item.get("guid"), exc)
+                return None
+
+        parsed_rows = await asyncio.gather(*[_fetch_and_parse(it) for it in items])
+        count = 0
+        for row in parsed_rows:
+            if row is not None:
+                await _upsert(db, row)
+                count += 1
 
     await db.commit()
     log.info("sachet poll: %d alerts upserted (state=%s)", count, state)
@@ -194,7 +197,8 @@ def build_test_alert(*, state: str) -> dict:
 
 async def create_test_alert(db: AsyncSession) -> AlertCache:
     s = get_settings()
-    row = build_test_alert(state=s.ALERTS_STATE)
+    target_state = "kerala" if s.ALERTS_STATE.lower() == "all" else s.ALERTS_STATE
+    row = build_test_alert(state=target_state)
     alert = AlertCache(**row)
     db.add(alert)
     await db.commit()

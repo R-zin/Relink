@@ -30,7 +30,7 @@ export function useRelinkData(region) {
       api.listShelters(),
       api.getClusters(),
       api.searchMissing(),
-      api.listAlerts('kerala'),
+      api.listAlerts('all'),
     ]);
     const fastKeys = ['health', 'sos', 'shelters', 'clusters', 'missing', 'alerts'];
     const fastNext = { lastSync: new Date() };
