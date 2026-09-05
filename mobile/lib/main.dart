@@ -4,9 +4,11 @@ import 'package:provider/provider.dart';
 import 'config.dart';
 import 'mesh/mesh_manager.dart';
 import 'screens/home_shell.dart';
+import 'services/alert_poller.dart';
 import 'services/api_client.dart';
 import 'services/location_service.dart';
 import 'services/medical_profile_store.dart';
+import 'services/notification_service.dart';
 import 'services/sync_service.dart';
 import 'storage/community_store.dart';
 import 'storage/outbox_dao.dart';
@@ -28,6 +30,8 @@ class _RelinkAppState extends State<RelinkApp> {
   late final CommunityStore _communityStore;
   late final ApiClient _apiClient;
   late final SyncService _syncService;
+  late final NotificationService _notificationService;
+  late final AlertPoller _alertPoller;
   MeshManager? _meshManager;
 
   @override
@@ -38,6 +42,11 @@ class _RelinkAppState extends State<RelinkApp> {
     _apiClient = ApiClient();
     _syncService = SyncService(outbox: _outbox, poster: _apiClient.postJson)
       ..start();
+    _notificationService = NotificationService()..init();
+    _alertPoller = AlertPoller(
+      api: _apiClient,
+      notifications: _notificationService,
+    )..start();
     _initMesh();
   }
 
@@ -55,6 +64,7 @@ class _RelinkAppState extends State<RelinkApp> {
 
   @override
   void dispose() {
+    _alertPoller.dispose();
     _meshManager?.stopMesh();
     _meshManager?.dispose();
     _syncService.dispose();
@@ -72,6 +82,7 @@ class _RelinkAppState extends State<RelinkApp> {
         ChangeNotifierProvider<MeshManager?>.value(value: _meshManager),
         Provider<LocationService>(create: (_) => LocationService()),
         Provider<MedicalProfileStore>(create: (_) => MedicalProfileStore()),
+        Provider<NotificationService>.value(value: _notificationService),
       ],
       child: MaterialApp(
         title: 'RELINK',

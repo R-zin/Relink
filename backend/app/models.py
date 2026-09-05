@@ -115,3 +115,29 @@ class AiReviewCache(Base):
     summary_text: Mapped[str | None] = mapped_column(Text)
     risk_tag: Mapped[str | None] = mapped_column(Text)  # 'Low' | 'Moderate' | 'High' | 'Severe'
     generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class AlertCache(Base):
+    """Cached NDMA Sachet CAP alert (migration 0003). One row per CAP identifier."""
+
+    __tablename__ = "alerts_cache"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    cap_identifier: Mapped[str] = mapped_column(Text, unique=True)
+    source: Mapped[str] = mapped_column(Text, server_default="sachet")
+    state: Mapped[str] = mapped_column(Text)
+    event: Mapped[str | None] = mapped_column(Text)
+    headline: Mapped[str | None] = mapped_column(Text)
+    description: Mapped[str | None] = mapped_column(Text)
+    instruction: Mapped[str | None] = mapped_column(Text)
+    severity: Mapped[str | None] = mapped_column(Text)
+    urgency: Mapped[str | None] = mapped_column(Text)
+    certainty: Mapped[str | None] = mapped_column(Text)
+    area_desc: Mapped[str | None] = mapped_column(Text)
+    sender: Mapped[str | None] = mapped_column(Text)
+    effective: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    onset: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    is_test: Mapped[int] = mapped_column(Integer, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

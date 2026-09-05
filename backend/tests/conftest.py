@@ -49,6 +49,7 @@ ALL_TABLES = (
     "devices",
     "stats_cache",
     "ai_review_cache",
+    "alerts_cache",
 )
 
 

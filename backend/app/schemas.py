@@ -163,3 +163,45 @@ class ShelterOut(BaseModel):
     confirm_count: int
     last_confirmed_at: datetime | None
     added_by: uuid.UUID | None
+
+
+# --- Phase 4: hazard stats / AI review / alerts ---
+
+
+class StatsOut(BaseModel):
+    region: str
+    fetched_at: str
+    metrics: dict[str, Any]
+
+
+class AiReviewOut(BaseModel):
+    region: str
+    summary_text: str | None
+    risk_tag: str | None
+    generated_at: str
+    source: str  # 'llm' | 'rule'
+    stale: bool = False
+
+
+class AlertOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    cap_identifier: str
+    source: str
+    state: str
+    event: str | None
+    headline: str | None
+    description: str | None
+    instruction: str | None
+    severity: str | None
+    urgency: str | None
+    certainty: str | None
+    area_desc: str | None
+    sender: str | None
+    effective: datetime | None
+    onset: datetime | None
+    expires: datetime | None
+    issued_at: datetime | None
+    is_test: int
+    created_at: datetime

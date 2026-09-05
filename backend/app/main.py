@@ -10,7 +10,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import health, medical, missing_persons, reports, shelters, sos
+from app.jobs import scheduler as jobs
+from app.routers import alerts, health, medical, missing_persons, reports, shelters, sos, stats
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("relink")
@@ -20,7 +21,9 @@ log = logging.getLogger("relink")
 async def lifespan(app: FastAPI):
     settings = get_settings()
     log.info("RELINK backend starting — db host: %s", settings.masked_db_host())
+    jobs.start_scheduler()
     yield
+    jobs.shutdown_scheduler()
 
 
 app = FastAPI(title="RELINK API", version="0.1.0", lifespan=lifespan)
@@ -34,5 +37,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for r in (health.router, sos.router, reports.router, missing_persons.router, shelters.router, medical.router):
+for r in (
+    health.router,
+    sos.router,
+    reports.router,
+    missing_persons.router,
+    shelters.router,
+    medical.router,
+    stats.router,
+    alerts.router,
+):
     app.include_router(r)

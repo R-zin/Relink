@@ -1,0 +1,109 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import 'tailwindcss';
+@import 'leaflet/dist/leaflet.css';
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background: #000;
+  color: #fff;
+  overflow: hidden;
+}
+
+.tabular-nums {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Reserved SOS pulse — the ONLY red motion in the UI */
+.sos-flash {
+  animation: pulse-red 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes pulse-red {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.scroll-hide::-webkit-scrollbar {
+  display: none;
+}
+.scroll-hide {
+  scrollbar-width: none;
+}
+
+/* ---- Monochrome map treatment ---- */
+.map-dark {
+  filter: grayscale(1) invert(0.92) brightness(0.86) contrast(1.05);
+  background: #000;
+}
+.leaflet-container {
+  background: #000;
+  font-family: 'Inter', sans-serif;
+}
+.leaflet-control-attribution {
+  background: rgba(0, 0, 0, 0.6) !important;
+  color: #52525b !important;
+  font-size: 9px !important;
+}
+.leaflet-control-attribution a {
+  color: #71717a !important;
+}
+.leaflet-control-zoom a {
+  background: #000 !important;
+  color: #a1a1aa !important;
+  border: 1px solid #27272a !important;
+}
+
+/* Monochrome divIcon pins */
+.pin {
+  display: block;
+  border-radius: 9999px;
+  border: 1.5px solid #fff;
+}
+.pin-shelter {
+  width: 12px;
+  height: 12px;
+  background: transparent;
+  border-color: #e4e4e7;
+}
+.pin-hazard {
+  width: 0;
+  height: 0;
+  border-radius: 0;
+  background: transparent;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 12px solid #a1a1aa;
+  border-top: none;
+}
+.pin-missing {
+  width: 11px;
+  height: 11px;
+  border-radius: 0;
+  background: #71717a;
+  border-color: #d4d4d8;
+}
+.pin-sos {
+  width: 14px;
+  height: 14px;
+  background: #ff0000;
+  border-color: #ff0000;
+  box-shadow: 0 0 0 4px rgba(255, 0, 0, 0.25);
+  animation: pulse-red 1.5s ease-in-out infinite;
+}

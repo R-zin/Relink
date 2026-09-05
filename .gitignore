@@ -28,3 +28,4 @@ mobile/ios/.symlinks/
 *.iml
 .DS_Store
 Thumbs.db
+.superdesign

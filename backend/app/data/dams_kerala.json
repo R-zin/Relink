@@ -1,0 +1,67 @@
+[
+  {
+    "name": "Idukki",
+    "district": "Idukki",
+    "river": "Periyar",
+    "lat": 9.8433,
+    "lng": 76.9761,
+    "frl_m": 732.62,
+    "mwl_m": 734.29,
+    "live_capacity_mcm": 1998.57,
+    "storage_pct": 88.4,
+    "danger_level_pct": 95.0,
+    "remarks": "Double-curvature arch dam; major Periyar storage. Levels from CWC weekly bulletin."
+  },
+  {
+    "name": "Mullaperiyar",
+    "district": "Idukki",
+    "river": "Periyar",
+    "lat": 9.5292,
+    "lng": 77.1442,
+    "frl_m": 43.28,
+    "mwl_m": 43.89,
+    "live_capacity_mcm": 443.23,
+    "storage_pct": 92.7,
+    "danger_level_pct": 95.0,
+    "remarks": "Contested 130-year-old masonry dam; high public-safety sensitivity downstream."
+  },
+  {
+    "name": "Idamalayar",
+    "district": "Ernakulam",
+    "river": "Idamalayar (Periyar tributary)",
+    "lat": 10.2236,
+    "lng": 76.7086,
+    "frl_m": 169.0,
+    "mwl_m": 171.0,
+    "live_capacity_mcm": 1018.72,
+    "storage_pct": 81.9,
+    "danger_level_pct": 95.0,
+    "remarks": "Closest major storage upstream of Kochi; spillway releases affect Periyar levels at Aluva."
+  },
+  {
+    "name": "Banasura Sagar",
+    "district": "Wayanad",
+    "river": "Kabini",
+    "lat": 11.6286,
+    "lng": 76.0414,
+    "frl_m": 775.6,
+    "mwl_m": 777.24,
+    "live_capacity_mcm": 209.3,
+    "storage_pct": 76.5,
+    "danger_level_pct": 95.0,
+    "remarks": "Largest earthen dam in India; Kabini basin."
+  },
+  {
+    "name": "Kakki",
+    "district": "Pathanamthitta",
+    "river": "Kakki (Pamba tributary)",
+    "lat": 9.3053,
+    "lng": 77.1639,
+    "frl_m": 981.46,
+    "mwl_m": 982.16,
+    "live_capacity_mcm": 447.77,
+    "storage_pct": 84.2,
+    "danger_level_pct": 95.0,
+    "remarks": "Pamba basin; upstream of the 2018 flood-affected reaches."
+  }
+]

@@ -5,7 +5,9 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../config.dart';
+import '../models/alert.dart';
 import '../models/cluster.dart';
+import '../models/hazard_stats.dart';
 import '../models/missing_person.dart';
 import '../models/mesh_message.dart';
 import '../models/report.dart';
@@ -165,6 +167,29 @@ class ApiClient {
 
   Future<void> confirmShelter(String id) =>
       postJson('/shelters/$id/confirm', {});
+
+  // --- Phase 4: hazard stats / AI review / official alerts ---
+
+  Future<List<Alert>> listAlerts({String state = 'kerala'}) async {
+    final data = await _get('/alerts', {'state': state}) as List;
+    return data
+        .map((e) => Alert.fromJson(e as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  Future<HazardStats> getStats({String? region}) async {
+    final data = await _get('/stats', {
+      if (region != null) 'region': region,
+    }) as Map<String, dynamic>;
+    return HazardStats.fromJson(data);
+  }
+
+  Future<AiReview> getAiReview({String? region}) async {
+    final data = await _get('/stats/ai-review', {
+      if (region != null) 'region': region,
+    }) as Map<String, dynamic>;
+    return AiReview.fromJson(data);
+  }
 }
 
 /// Maps a mesh envelope to the Phase 1 endpoint + request body for its type.
