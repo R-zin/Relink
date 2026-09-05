@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     OPEN_METEO_MARINE_URL: str = "https://marine-api.open-meteo.com"
     NASA_EONET_URL: str = "https://eonet.gsfc.nasa.gov/api/v3"
     SACHET_RSS_URL: str | None = None
+    # Copernicus Global Flood Monitoring (GFM) live WMS — EODC GeoServer.
+    # Serves the current observed flood-extent composite as PNG tiles overlaid
+    # on the OSM basemap (no GeoJSON/COG download). No auth required.
+    GFM_WMS_URL: str = "https://geoserver.gfm.eodc.eu/geoserver/gfm/wms"
+    GFM_WMS_LAYER: str = "observed_flood_extent"
 
     # Phase 4 demo region (Kochi / Periyar basin)
     REGION_NAME: str = "Kochi, Kerala"

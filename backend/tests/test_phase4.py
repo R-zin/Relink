@@ -29,11 +29,17 @@ def test_stats_serves_metrics(client: TestClient):
     body = resp.json()
     assert body["region"] == "Kochi, Kerala"
     metrics = body["metrics"]
-    # Dams + GFM come from local fixtures — always present.
+    # Dams come from a local fixture — always present. GFM is now a live WMS
+    # descriptor (clients render the flood-extent overlay as tiles); assert the
+    # connection-info shape, not fixture polygons.
     assert metrics["dams"]["count"] == 5
     assert any(d["name"] == "Mullaperiyar" for d in metrics["dams"]["dams"])
-    assert metrics["gfm"]["polygon_count"] == 4
-    assert metrics["gfm"]["observed_at"] == "2026-09-04T18:00:00Z"
+    gfm = metrics["gfm"]
+    assert gfm["mode"] == "wms"
+    assert gfm["wms_url"].startswith("https://geoserver.gfm.eodc.eu")
+    assert gfm["layer"] == "observed_flood_extent"
+    assert gfm["crs"] == "EPSG:3857"
+    assert isinstance(gfm["region_bbox"], list) and len(gfm["region_bbox"]) == 4
     # Live metrics present (network available in this env) or marked stale.
     assert "discharge_m3s" in metrics["glofas"]
     assert "rainfall_24h_mm" in metrics["weather"]
