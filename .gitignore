@@ -7,15 +7,18 @@ __pycache__/
 data/processed/
 data/raw/*/sentinel/*.tif
 data/raw/*/dem/*.tif
-data/raw/*/rainfall/*.tif
+data/raw/*/rainfall/
 data/raw/*/landcover/*.tif
 
-# Generated model/output files
-outputs/*/best_model.joblib
+# Raw downloaded archives & their extracts (re-downloadable, large)
+data/raw/_kerala_inventory_extract/
+data/raw/*.zip
+
+# Generated large rasters (regenerable, too big for git)
 outputs/*/susceptibility.tif
 outputs/*/risk_classes.tif
 
-# Keep useful small/vector files
+# Keep useful small/vector files (incl. map overlay GeoJSON for app integration)
 !data/raw/*/landslides/
 !data/raw/*/landslides/*.geojson
 !data/regions/

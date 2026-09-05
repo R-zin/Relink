@@ -1,0 +1,9 @@
+{
+  "spatial_block_split": {
+    "pr_auc": 0.944,
+    "roc_auc": 0.981,
+    "recall": 0.809,
+    "precision": 0.889,
+    "f1": 0.847
+  }
+}

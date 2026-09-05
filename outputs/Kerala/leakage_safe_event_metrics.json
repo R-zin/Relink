@@ -1,0 +1,11 @@
+{
+  "event_split": {
+    "pr_auc": 0.968,
+    "roc_auc": 0.932,
+    "recall": 0.784,
+    "precision": 0.949,
+    "f1": 0.859
+  },
+  "train_event_groups": 1339,
+  "test_event_groups": 447
+}
