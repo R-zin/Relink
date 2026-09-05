@@ -36,12 +36,18 @@ class MapController extends ChangeNotifier {
   bool showShelters = true;
   bool showHazards = true;
   bool showMissing = true;
+  bool showFlood = true;
 
   List<ReportCluster> clusters = [];
   List<Report> noiseReports = [];
   List<Shelter> shelters = [];
   List<MissingPerson> missingPersons = [];
   List<CommunityItem> meshItems = []; // offline mesh-gossiped pins
+
+  /// Live Copernicus GFM flood-extent WMS descriptor from `GET /stats`
+  /// (`{mode:"wms", wms_url, layer, crs, ...}`). Null until fetched / if the
+  /// backend is unreachable — the overlay simply doesn't render then.
+  Map<String, dynamic> gfmWms = const {};
 
   LatLng center = const LatLng(kDemoCenterLat, kDemoCenterLng);
   bool loading = false;
@@ -68,6 +74,8 @@ class MapController extends ChangeNotifier {
         showHazards = !showHazards;
       case 'missing':
         showMissing = !showMissing;
+      case 'flood':
+        showFlood = !showFlood;
     }
     notifyListeners();
     refresh();
@@ -84,6 +92,14 @@ class MapController extends ChangeNotifier {
       meshItems = await _communityStore?.recent(limit: 100) ?? [];
     } catch (_) {
       meshItems = [];
+    }
+    // Live GFM flood-extent WMS descriptor (internet-only, like the base map).
+    // Never blocks the rest of the map — on failure we just hide the overlay.
+    try {
+      final stats = await _api.getStats();
+      gfmWms = stats.gfm;
+    } catch (_) {
+      gfmWms = const {};
     }
     try {
       if (showHazards) {
@@ -182,6 +198,9 @@ class _MapScreenState extends State<MapScreen> {
                     // OSM blocks/throttles tile requests without this.
                     userAgentPackageName: 'in.relink.relink_mobile',
                   ),
+                  // Live Copernicus GFM flood-extent overlay (EODC GeoServer
+                  // WMS): transparent PNG tiles on top of the OSM basemap.
+                  if (c.showFlood) ..._gfmOverlay(c),
                   MarkerLayer(markers: _markers(context, c)),
                 ],
               ),
@@ -229,6 +248,32 @@ class _MapScreenState extends State<MapScreen> {
         },
       ),
     );
+  }
+
+  /// Build the live GFM WMS overlay layer from the backend descriptor. Returns
+  /// an empty list when the descriptor isn't a usable WMS source.
+  List<Widget> _gfmOverlay(MapController c) {
+    final gfm = c.gfmWms;
+    if (gfm['mode'] != 'wms') return const [];
+    final url = gfm['wms_url'] as String?;
+    final layer = gfm['layer'] as String?;
+    if (url == null || layer == null) return const [];
+    // flutter_map concatenates `baseUrl` + `&service=...` verbatim — it does NOT
+    // insert the `?`. The GeoServer 400s on `.../wms&service=...`, so the base
+    // URL must carry the query delimiter itself.
+    final base = url.endsWith('?') ? url : '$url?';
+    return [
+      TileLayer(
+        wmsOptions: WMSTileLayerOptions(
+          baseUrl: base,
+          layers: [layer],
+          format: 'image/png',
+          transparent: true,
+          version: '1.1.1',
+        ),
+        userAgentPackageName: 'in.relink.relink_mobile',
+      ),
+    ];
   }
 
   List<Marker> _markers(BuildContext context, MapController c) {
@@ -485,15 +530,8 @@ class _LayerToggles extends StatelessWidget {
                 controller.showHazards, () => controller.toggle('hazards')),
             _toggleChip('Missing', RelinkColors.pinMissing,
                 controller.showMissing, () => controller.toggle('missing')),
-            // TODO(phase4): Copernicus GFM flood-extent layer.
-            const Opacity(
-              opacity: 0.45,
-              child: FilterChip(
-                label: Text('Flood extent'),
-                selected: false,
-                onSelected: null,
-              ),
-            ),
+            _toggleChip('Flood extent', RelinkColors.pinHazard,
+                controller.showFlood, () => controller.toggle('flood')),
           ],
         ),
       ),

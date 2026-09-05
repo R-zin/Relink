@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import L from 'leaflet';
-import { CircleMarker, MapContainer, Polygon, Marker, TileLayer, Tooltip } from 'react-leaflet';
+import { CircleMarker, MapContainer, Polygon, Marker, TileLayer, Tooltip, WMSTileLayer } from 'react-leaflet';
 import { fmt } from '../lib/format';
 
 const CENTER = [10.02, 76.32]; // Kochi, Kerala (config.GLOFAS_LAT/LNG)
@@ -22,7 +22,10 @@ export function MapCanvas({ sos, shelters, clusters, missing, gfm }) {
   const toggle = (k) => setOn((s) => ({ ...s, [k]: !s[k] }));
 
   const hazardClusters = clusters?.clusters ?? [];
-  const floodPolys = useMemo(() => extractPolygons(gfm), [gfm]);
+  // Live GFM flood extent arrives as a WMS descriptor; older cached rows may
+  // still carry the GeoJSON fixture shape — tolerate both.
+  const gfmIsWms = gfm?.mode === 'wms' && gfm?.wms_url && gfm?.layer;
+  const floodPolys = gfmIsWms ? [] : extractPolygons(gfm);
 
   return (
     <div className="relative flex-1">
@@ -46,6 +49,20 @@ export function MapCanvas({ sos, shelters, clusters, missing, gfm }) {
           attribution="&copy; OpenStreetMap contributors"
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+
+        {/* Live Copernicus GFM flood-extent overlay (EODC GeoServer WMS),
+            rendered as transparent PNG tiles on top of the OSM basemap. */}
+        {on.flood && gfmIsWms && (
+          <WMSTileLayer
+            url={gfm.wms_url}
+            layers={gfm.layer}
+            format="image/png"
+            transparent={true}
+            version="1.1.1"
+            opacity={0.9}
+            attribution="Copernicus GFM (EODC, Sentinel-1 SAR)"
+          />
+        )}
 
         {on.shelters &&
           (shelters ?? []).map((s) => (
@@ -104,7 +121,9 @@ export function MapCanvas({ sos, shelters, clusters, missing, gfm }) {
             </Marker>
           ))}
 
+        {/* Fallback for stale cached rows that still carry GeoJSON polygons. */}
         {on.flood &&
+          !gfmIsWms &&
           floodPolys.map((poly, i) => (
             <Polygon
               key={`gfm-${i}`}
@@ -114,12 +133,12 @@ export function MapCanvas({ sos, shelters, clusters, missing, gfm }) {
           ))}
       </MapContainer>
 
-      {/* GFM observation note */}
-      {on.flood && gfm?.observed_at && (
+      {/* GFM note — live WMS overlay, latest satellite observation */}
+      {on.flood && gfmIsWms && (
         <div className="absolute bottom-4 left-4 z-[1000] border border-zinc-800 bg-black px-3 py-2">
-          <div className="text-[9px] uppercase tracking-widest text-zinc-500">Copernicus GFM · flood extent</div>
+          <div className="text-[9px] uppercase tracking-widest text-zinc-500">Copernicus GFM · live flood extent</div>
           <div className="tabular-nums text-[10px] text-zinc-400">
-            observed {new Date(gfm.observed_at).toUTCString().slice(0, 22)} — latest satellite pass, not live
+            latest Sentinel-1 observation — not a real-time stream
           </div>
         </div>
       )}

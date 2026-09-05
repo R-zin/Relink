@@ -385,6 +385,7 @@ class _FloodExtentCard extends StatelessWidget {
     final gfm = stats.gfm;
     final observedAtRaw = gfm['observed_at'] as String?;
     final observedAt = observedAtRaw == null ? null : DateTime.tryParse(observedAtRaw);
+    final isLiveWms = gfm['mode'] == 'wms';
     final count = gfm['polygon_count'] as int? ?? 0;
     return _Card(
       child: Column(
@@ -393,9 +394,11 @@ class _FloodExtentCard extends StatelessWidget {
           _CardHeader(title: 'Satellite flood extent', source: gfm['source_label'] as String? ?? 'Copernicus GFM'),
           const SizedBox(height: 8),
           Text(
-            count > 0
-                ? '$count inundated area${count == 1 ? '' : 's'} detected along the Periyar floodplain.'
-                : 'No inundation polygons in the latest observation.',
+            isLiveWms
+                ? 'Live satellite flood-extent layer is overlaid on the map. Updated with each Sentinel-1 pass (~every 12 hours).'
+                : (count > 0
+                    ? '$count inundated area${count == 1 ? '' : 's'} detected along the Periyar floodplain.'
+                    : 'No inundation polygons in the latest observation.'),
             style: const TextStyle(fontSize: 14, height: 1.4),
           ),
           const SizedBox(height: 8),
@@ -405,9 +408,11 @@ class _FloodExtentCard extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  observedAt != null
-                      ? 'Observed ${DateFormat('d MMM, h:mm a').format(observedAt.toLocal())} — latest satellite pass, not live'
-                      : 'Observation time unavailable',
+                  isLiveWms
+                      ? 'Latest Sentinel-1 observation — not a real-time stream'
+                      : (observedAt != null
+                          ? 'Observed ${DateFormat('d MMM, h:mm a').format(observedAt.toLocal())} — latest satellite pass, not live'
+                          : 'Observation time unavailable'),
                   style: const TextStyle(fontSize: 12, color: Colors.black54),
                 ),
               ),
