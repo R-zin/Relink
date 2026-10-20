@@ -7,15 +7,17 @@ import '../mesh/mesh_manager.dart';
 import '../theme.dart';
 import 'alerts/alerts_screen.dart';
 import 'debug/outbox_viewer.dart';
+import 'locator/locator_screen.dart';
 import 'map/map_screen.dart';
 import 'sos/sos_screen.dart';
 import 'stats/stats_screen.dart';
 import 'submit/submit_hub.dart';
 
-/// Bottom-nav shell: SOS · Map · Submit · Alerts · Stats.
+/// Bottom-nav shell: SOS · Map · Find · Submit · Alerts · Stats.
 ///
-/// SOS is the center item and visually dominant (master plan: one tap from
+/// SOS is the first item and visually dominant (master plan: one tap from
 /// anywhere). Long-press the app-bar title to open the dev-only outbox viewer.
+/// Find (the BLE missing-person locator) was added on the locator branch.
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
 
@@ -30,6 +32,7 @@ class _HomeShellState extends State<HomeShell> {
   static const _screens = [
     SosScreen(),
     MapScreen(),
+    LocatorScreen(),
     SubmitHub(),
     AlertsScreen(),
     StatsScreen(),
@@ -104,6 +107,11 @@ class _HomeShellState extends State<HomeShell> {
             icon: Icon(Icons.map_outlined),
             selectedIcon: Icon(Icons.map),
             label: 'Map',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.person_search_outlined),
+            selectedIcon: Icon(Icons.person_search),
+            label: 'Find',
           ),
           const NavigationDestination(
             icon: Icon(Icons.add_circle_outline),

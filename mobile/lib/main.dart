@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'config.dart';
+import 'locator/fbp_ble_transport.dart';
+import 'locator/locator_service.dart';
 import 'mesh/mesh_manager.dart';
 import 'screens/home_shell.dart';
 import 'services/alert_poller.dart';
@@ -32,6 +34,7 @@ class _RelinkAppState extends State<RelinkApp> {
   late final SyncService _syncService;
   late final NotificationService _notificationService;
   late final AlertPoller _alertPoller;
+  late final LocatorService _locatorService;
   MeshManager? _meshManager;
 
   @override
@@ -47,6 +50,11 @@ class _RelinkAppState extends State<RelinkApp> {
       api: _apiClient,
       notifications: _notificationService,
     )..start();
+    // Raw-BLE missing-person locator. Headless engine (no radios yet): the
+    // transport only starts scanning/advertising when the follow-up Locator UI
+    // arms a target or starts a query, so this shares the controller with the
+    // mesh without disturbing it.
+    _locatorService = LocatorService(transport: FbpBleTransport());
     _initMesh();
   }
 
@@ -65,6 +73,7 @@ class _RelinkAppState extends State<RelinkApp> {
   @override
   void dispose() {
     _alertPoller.dispose();
+    _locatorService.dispose();
     _meshManager?.stopMesh();
     _meshManager?.dispose();
     _syncService.dispose();
@@ -80,6 +89,7 @@ class _RelinkAppState extends State<RelinkApp> {
         Provider<ApiClient>.value(value: _apiClient),
         Provider<SyncService>.value(value: _syncService),
         ChangeNotifierProvider<MeshManager?>.value(value: _meshManager),
+        ChangeNotifierProvider<LocatorService>.value(value: _locatorService),
         Provider<LocationService>(create: (_) => LocationService()),
         Provider<MedicalProfileStore>(create: (_) => MedicalProfileStore()),
         Provider<NotificationService>.value(value: _notificationService),
