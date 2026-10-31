@@ -29,15 +29,17 @@ async def create_missing_person(body: MissingPersonCreate, db: AsyncSession = De
 
 @router.get("/search", response_model=list[MissingPersonOut])
 async def search_missing_persons(
-    name: str | None = Query(default=None),
+    name: str | None = Query(default=None, max_length=200),
     lat: float | None = Query(default=None, ge=-90, le=90),
     lng: float | None = Query(default=None, ge=-180, le=180),
     radius_km: float = Query(default=50, gt=0, le=1000),
+    limit: int = Query(default=50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ):
     stmt = select(MissingPerson)
     if name:
-        stmt = stmt.where(MissingPerson.name.ilike(f"%{name}%"))  # case-insensitive substring
+        clean_name = name.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        stmt = stmt.where(MissingPerson.name.ilike(f"%{clean_name}%"))  # case-insensitive substring
     if lat is not None and lng is not None:
         min_lat, max_lat, min_lng, max_lng = bounding_box(lat, lng, radius_km)
         stmt = stmt.where(
@@ -45,6 +47,6 @@ async def search_missing_persons(
             MissingPerson.last_seen_lng.between(min_lng, max_lng),
         )
         rows = (await db.execute(stmt)).scalars().all()
-        return within_radius(rows, lat, lng, radius_km, lat_attr="last_seen_lat", lng_attr="last_seen_lng")
-    stmt = stmt.order_by(MissingPerson.created_at.desc()).limit(50)  # empty query -> newest 50
+        return within_radius(rows, lat, lng, radius_km, lat_attr="last_seen_lat", lng_attr="last_seen_lng")[:limit]
+    stmt = stmt.order_by(MissingPerson.created_at.desc()).limit(limit)  # empty query -> newest
     return (await db.execute(stmt)).scalars().all()

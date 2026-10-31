@@ -1,20 +1,18 @@
 import os
+import secrets
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from app.config import get_settings
 from app.services.medical_crypto import MedicalDecryptError, decrypt_medical
 
 router = APIRouter(prefix="/medical", tags=["medical"])
 
-# Break-glass demo auth (phase_3.md §8). A shared static passphrase is
-# intentional hackathon scope — real responder auth is a roadmap item.
-_DEMO_PASS = os.environ.get("DECRYPT_DEMO_PASS", "relink-demo")
-
 
 class DecryptRequest(BaseModel):
-    ciphertext: str  # base64 envelope: [12B nonce][ciphertext][16B tag]
-    demo_pass: str = _DEMO_PASS
+    ciphertext: str = Field(..., min_length=1, max_length=10_000)
+    demo_pass: str = Field(..., min_length=1, max_length=256)
 
 
 class DecryptResponse(BaseModel):
@@ -26,14 +24,19 @@ class DecryptResponse(BaseModel):
 async def medical_decrypt(body: DecryptRequest):
     """Responder break-glass decrypt of an SOS medical card's sensitive fields.
 
-    Decrypted on view, never stored. Auth is a static demo passphrase.
+    Decrypted on view, never stored. Auth uses constant-time secret comparison.
     """
-    if body.demo_pass and body.demo_pass != _DEMO_PASS:
-        # constant-time-ish: compare directly, no length/timing oracle worth
-        # hardening for a static hackathon passphrase.
+    settings = get_settings()
+    configured_pass = (
+        getattr(settings, "DECRYPT_DEMO_PASS", None)
+        or os.environ.get("DECRYPT_DEMO_PASS", "relink-demo")
+    )
+
+    if not secrets.compare_digest(body.demo_pass.strip().encode("utf-8"), configured_pass.encode("utf-8")):
         raise HTTPException(status_code=401, detail="unauthorized")
+
     try:
         data = decrypt_medical(body.ciphertext)
     except MedicalDecryptError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise HTTPException(status_code=422, detail="Invalid ciphertext or decryption failed") from exc
     return DecryptResponse(status="success", decrypted_data=data)

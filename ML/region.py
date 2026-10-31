@@ -47,12 +47,20 @@ class Region:
     @classmethod
     def from_config(cls, name_or_path: str, project_root: Path | None = None) -> "Region":
         """Load a region from a name (config/regions/<name>.yaml) or a YAML path."""
-        root = Path(project_root) if project_root else PROJECT_ROOT
+        root = (Path(project_root) if project_root else PROJECT_ROOT).resolve()
         candidate = Path(name_or_path)
         if not candidate.suffix:
-            candidate = root / "config" / "regions" / f"{name_or_path}.yaml"
+            candidate = (root / "config" / "regions" / f"{name_or_path}.yaml").resolve()
+            if not candidate.is_relative_to(root / "config" / "regions"):
+                raise ValueError(f"Path traversal detected in region name: {name_or_path}")
         elif not candidate.is_absolute():
-            candidate = root / candidate
+            candidate = (root / candidate).resolve()
+            if not candidate.is_relative_to(root):
+                raise ValueError(f"Path traversal detected in region path: {name_or_path}")
+        else:
+            candidate = candidate.resolve()
+            if not candidate.is_relative_to(root):
+                raise ValueError(f"Absolute path outside project root rejected: {candidate}")
         if not candidate.exists():
             raise FileNotFoundError(f"Region config not found: {candidate}")
         with open(candidate, "r", encoding="utf-8") as fh:

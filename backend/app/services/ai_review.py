@@ -97,10 +97,13 @@ async def _call_llm(metrics: dict, region: str) -> tuple[str, str]:
     if not s.LLM_API_KEY:
         raise RuntimeError("LLM_API_KEY not configured")
 
+    # Sanitize region string to prevent prompt injection via system prompt template
+    clean_region = re.sub(r"[^\w\s,\-]", "", region).strip()[:100] or "Disaster Region"
+
     payload = {
         "model": s.LLM_MODEL,
         "max_tokens": 350,
-        "system": _SYSTEM.format(region=region),
+        "system": _SYSTEM.format(region=clean_region),
         "messages": [
             {
                 "role": "user",
@@ -117,7 +120,7 @@ async def _call_llm(metrics: dict, region: str) -> tuple[str, str]:
         "anthropic-version": "2023-06-01",
         "content-type": "application/json",
     }
-    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+    async with httpx.AsyncClient(timeout=_TIMEOUT, verify=s.SSL_VERIFY) as client:
         resp = await client.post(s.LLM_API_URL, json=payload, headers=headers)
         resp.raise_for_status()
         body = resp.json()
@@ -126,7 +129,7 @@ async def _call_llm(metrics: dict, region: str) -> tuple[str, str]:
     if not text.strip():
         raise RuntimeError("LLM returned empty content")
     tag = parse_risk_tag(text) or "Moderate"
-    return text.strip(), tag
+    return text.strip()[:2000], tag
 
 
 async def get_ai_review(db: AsyncSession, region: str) -> dict:

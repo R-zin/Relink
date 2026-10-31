@@ -77,6 +77,16 @@ def test_endpoint_wrong_passphrase_401(client):
     assert r.status_code == 401
 
 
+def test_endpoint_missing_passphrase_rejected(client):
+    r = client.post("/medical/decrypt", json={"ciphertext": CIPHERTEXT_B64})
+    assert r.status_code == 422  # Required field missing
+
+
+def test_endpoint_empty_passphrase_rejected(client):
+    r = _post(client, demo_pass="")
+    assert r.status_code in (401, 422)
+
+
 def test_endpoint_bad_ciphertext_422(client):
     r = _post(client, ciphertext="!!! not base64 !!!")
     assert r.status_code == 422
