@@ -21,7 +21,7 @@ sys.path.insert(0, str(BACKEND_DIR))
 from dotenv import dotenv_values  # noqa: E402
 
 _env = dotenv_values(BACKEND_DIR / ".env")
-_dev_url = os.environ.get("DATABASE_URL") or _env.get("DATABASE_URL", "")
+_dev_url = os.environ.get("DATABASE_URL") or _env.get("DATABASE_URL") or "postgresql+asyncpg://postgres@localhost:5432/relink"
 _test_url = os.environ.get("TEST_DATABASE_URL") or _env.get("TEST_DATABASE_URL")
 if not _test_url:
     # Derive: same server/credentials, database relink_test.

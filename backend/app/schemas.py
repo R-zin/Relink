@@ -17,16 +17,16 @@ class ReportType(StrEnum):
 
 
 class EmergencyContact(BaseModel):
-    name: str | None = None
-    phone: str | None = None
+    name: str | None = Field(default=None, max_length=200)
+    phone: str | None = Field(default=None, max_length=50)
 
 
 class PlaintextMedical(BaseModel):
     """Medical card fields broadcast openly in an SOS (see master plan §5)."""
 
-    name: str | None = None
-    blood_group: str | None = None
-    allergies: list[str] | None = None
+    name: str | None = Field(default=None, max_length=200)
+    blood_group: str | None = Field(default=None, max_length=10)
+    allergies: list[str] | None = Field(default=None, max_length=50)
     emergency_contact: EmergencyContact | None = None
 
 
@@ -46,12 +46,12 @@ class ConfirmResult(BaseModel):
 
 
 class SosCreate(BaseModel):
-    device_id: str | None = None  # client-generated UUID string; non-UUID -> stored NULL
+    device_id: str | None = Field(default=None, max_length=64)  # client-generated UUID string; non-UUID -> stored NULL
     lat: float = Field(ge=-90, le=90)
     lng: float = Field(ge=-180, le=180)
     plaintext_medical: PlaintextMedical | None = None
-    encrypted_medical: str | None = None  # opaque base64 AES-GCM ciphertext
-    client_msg_id: str | None = None  # Phase 3 mesh message id for idempotent relay flush
+    encrypted_medical: str | None = Field(default=None, max_length=10_000)  # opaque base64 AES-GCM ciphertext
+    client_msg_id: str | None = Field(default=None, max_length=64)  # Phase 3 mesh message id for idempotent relay flush
 
 
 class SosEventOut(BaseModel):
@@ -81,9 +81,9 @@ class ReportCreate(BaseModel):
     type: ReportType
     lat: float = Field(ge=-90, le=90)
     lng: float = Field(ge=-180, le=180)
-    description: str | None = None
-    device_id: str | None = None
-    client_msg_id: str | None = None  # Phase 3 mesh message id for idempotent relay flush
+    description: str | None = Field(default=None, max_length=2_000)
+    device_id: str | None = Field(default=None, max_length=64)
+    client_msg_id: str | None = Field(default=None, max_length=64)  # Phase 3 mesh message id for idempotent relay flush
 
 
 class ReportOut(BaseModel):
@@ -121,11 +121,11 @@ class ClusterResultOut(BaseModel):
 
 
 class MissingPersonCreate(BaseModel):
-    name: str = Field(min_length=1)
+    name: str = Field(min_length=1, max_length=200)
     last_seen_lat: float | None = Field(default=None, ge=-90, le=90)
     last_seen_lng: float | None = Field(default=None, ge=-180, le=180)
-    description: str | None = None
-    reporter_device_id: str | None = None
+    description: str | None = Field(default=None, max_length=2_000)
+    reporter_device_id: str | None = Field(default=None, max_length=64)
 
 
 class MissingPersonOut(BaseModel):
@@ -145,11 +145,11 @@ class MissingPersonOut(BaseModel):
 
 
 class ShelterCreate(BaseModel):
-    name: str = Field(min_length=1)
+    name: str = Field(min_length=1, max_length=200)
     lat: float = Field(ge=-90, le=90)
     lng: float = Field(ge=-180, le=180)
-    contact_info: str | None = None
-    added_by: str | None = None
+    contact_info: str | None = Field(default=None, max_length=500)
+    added_by: str | None = Field(default=None, max_length=64)
 
 
 class ShelterOut(BaseModel):

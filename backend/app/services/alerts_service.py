@@ -8,6 +8,7 @@ path synthesises a Red flood warning for judge presentations.
 
 import asyncio
 import logging
+import urllib.parse
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 
@@ -137,14 +138,32 @@ async def poll_sachet(db: AsyncSession) -> int:
         return 0
     state = s.ALERTS_STATE
 
-    async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True, verify=False) as client:
+    async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True, verify=s.SSL_VERIFY) as client:
         rss = await client.get(s.SACHET_RSS_URL)
         rss.raise_for_status()
         items = parse_rss_items(rss.text)
 
         async def _fetch_and_parse(item: dict) -> dict | None:
             try:
-                cap = await client.get(item["link"])
+                link = item.get("link")
+                if not link:
+                    return None
+                parsed = urllib.parse.urlparse(link)
+                # SSRF guard: allow only http/https schemes
+                if parsed.scheme not in ("http", "https"):
+                    log.warning("Invalid URL scheme in CAP link: %s", link)
+                    return None
+                # Restrict to official gov / ndma domain or configured base domain
+                expected_host = urllib.parse.urlparse(s.SACHET_RSS_URL).netloc
+                is_valid_host = (
+                    parsed.netloc == "ndma.gov.in"
+                    or parsed.netloc.endswith(".ndma.gov.in")
+                    or parsed.netloc == expected_host
+                )
+                if not is_valid_host:
+                    log.warning("Untrusted host in CAP link: %s", parsed.netloc)
+                    return None
+                cap = await client.get(link)
                 cap.raise_for_status()
                 return parse_cap_xml(cap.text, state=state)
             except Exception as exc:  # noqa: BLE001 — one bad item must not kill the poll

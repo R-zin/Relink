@@ -12,7 +12,7 @@ router = APIRouter(prefix="/alerts", tags=["alerts"])
 
 @router.get("", response_model=list[AlertOut])
 async def list_alerts(
-    state: str | None = Query(default=None),
+    state: str | None = Query(default=None, max_length=50),
     include_expired: bool = Query(default=False),
     limit: int = Query(default=50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
@@ -29,11 +29,12 @@ async def list_alerts(
 
     # When state is specified (and not an 'all' wildcard), filter unless backend is in all-India mode serving legacy 'kerala'
     if state and state.lower() not in ("all", "india", "all_india", "*"):
+        clean_state = state.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         if s.ALERTS_STATE.lower() != "all" or state.lower() != "kerala":
             stmt = stmt.where(
                 or_(
                     AlertCache.state == state.lower(),
-                    AlertCache.area_desc.ilike(f"%{state}%"),
+                    AlertCache.area_desc.ilike(f"%{clean_state}%"),
                     AlertCache.is_test == 1,
                 )
             )

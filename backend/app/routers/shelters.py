@@ -54,6 +54,7 @@ async def list_shelters(
     lat: float | None = Query(default=None, ge=-90, le=90),
     lng: float | None = Query(default=None, ge=-180, le=180),
     radius_km: float = Query(default=50, gt=0, le=1000),
+    limit: int = Query(default=100, ge=1, le=1000),
     db: AsyncSession = Depends(get_db),
 ):
     stmt = _trust_order(select(Shelter))
@@ -61,5 +62,5 @@ async def list_shelters(
         min_lat, max_lat, min_lng, max_lng = bounding_box(lat, lng, radius_km)
         stmt = stmt.where(Shelter.lat.between(min_lat, max_lat), Shelter.lng.between(min_lng, max_lng))
         rows = (await db.execute(stmt)).scalars().all()
-        return within_radius(rows, lat, lng, radius_km)
-    return (await db.execute(stmt)).scalars().all()
+        return within_radius(rows, lat, lng, radius_km)[:limit]
+    return (await db.execute(stmt.limit(limit))).scalars().all()

@@ -57,7 +57,7 @@ def test_ai_review_returns_tag_and_summary(client: TestClient):
     # metrics (dams fixture always present), not empty/zero placeholders.
     if body["source"] == "rule":
         assert "reservoir data unavailable" not in body["summary_text"]
-        assert "0 m³/s" not in body["summary_text"]
+        assert " 0 m³/s" not in body["summary_text"] and not body["summary_text"].startswith("0 m³/s")
 
 
 def test_ai_review_caches_result(client: TestClient):

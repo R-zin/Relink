@@ -10,6 +10,7 @@ Terminology discipline (per master plan and ML README): All wording surfaces
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -24,10 +25,18 @@ DISCLAIMER = (
     "landslides; it is a predictive model, not a sensor detection of an active event."
 )
 
+_REGION_REGEX = re.compile(r"^[a-zA-Z0-9_\- ,]+$")
+
 
 def _get_region_dir(region: str) -> Path:
+    if not region or not _REGION_REGEX.match(region) or len(region) > 64:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid region parameter. Must contain only alphanumeric characters, dashes, underscores, spaces, and commas.",
+        )
+
     settings = get_settings()
-    base_dir = settings.ml_outputs_path()
+    base_dir = settings.ml_outputs_path().resolve()
     
     # Try exact match, title case, or lowercase match
     candidates = [
@@ -37,11 +46,12 @@ def _get_region_dir(region: str) -> Path:
         base_dir / region.lower(),
     ]
     for c in candidates:
-        if c.is_dir():
-            return c
+        resolved = c.resolve()
+        if resolved.is_relative_to(base_dir) and resolved != base_dir and resolved.is_dir():
+            return resolved
     raise HTTPException(
         status_code=404,
-        detail=f"Region '{region}' not found in ML outputs ({base_dir}).",
+        detail=f"Region '{region}' not found in ML outputs.",
     )
 
 
