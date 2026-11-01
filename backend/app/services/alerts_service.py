@@ -155,7 +155,12 @@ async def poll_sachet(db: AsyncSession) -> int:
                     return None
                 # Restrict to official gov / ndma domain or configured base domain
                 expected_host = urllib.parse.urlparse(s.SACHET_RSS_URL).netloc
-                if not (parsed.netloc.endswith("ndma.gov.in") or parsed.netloc == expected_host):
+                is_valid_host = (
+                    parsed.netloc == "ndma.gov.in"
+                    or parsed.netloc.endswith(".ndma.gov.in")
+                    or parsed.netloc == expected_host
+                )
+                if not is_valid_host:
                     log.warning("Untrusted host in CAP link: %s", parsed.netloc)
                     return None
                 cap = await client.get(link)

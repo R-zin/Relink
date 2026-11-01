@@ -25,14 +25,14 @@ DISCLAIMER = (
     "landslides; it is a predictive model, not a sensor detection of an active event."
 )
 
-_REGION_REGEX = re.compile(r"^[a-zA-Z0-9_\- ]+$")
+_REGION_REGEX = re.compile(r"^[a-zA-Z0-9_\- ,]+$")
 
 
 def _get_region_dir(region: str) -> Path:
     if not region or not _REGION_REGEX.match(region) or len(region) > 64:
         raise HTTPException(
             status_code=400,
-            detail="Invalid region parameter. Must contain only alphanumeric characters, dashes, underscores, and spaces.",
+            detail="Invalid region parameter. Must contain only alphanumeric characters, dashes, underscores, spaces, and commas.",
         )
 
     settings = get_settings()
